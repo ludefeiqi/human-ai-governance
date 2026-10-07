@@ -1,0 +1,24 @@
+# 人机治理仓库 v0.1：仅项目入口索引，不复制项目动态执行状态。
+# v0.1.0 已发布项目索引；此条目仍不产生项目采用或业务执行授权。
+# 路径字段只允许项目声明的非敏感仓库相对文档路径；不得出现绝对路径、..、通配符、file://、私人 home/profile/cache/log、凭据或带 token 的 URL。
+# repository 只能 owner/repo；索引不授予任何新的读取、写入或执行权限。
+schema_version: '0.1'
+registry_state: published_reference_only
+projects:
+  hot-auth-bbs:
+    display_name: HOT / AUTH / BBS
+    repository: ludefeiqi/dabing.lol
+    authority_branch: docs/hot-auth-bbs-correction-ledger-v1-20261001
+    ledger_path: docs/HOT-AUTH-BBS-CORRECTION-LEDGER.zh-CN.md
+    project_rules_path: AGENTS.md
+    issue_root: 3
+    frozen_product_baseline:
+      path: docs/HOT-AUTH-BBS-BASELINE-v2.zh-CN.md
+      commit: 38d7ae0a25fbf9411807bf2567c9ccf5ef23d8eb
+    governance_adoption: reference_only
+    dispatch_enabled: false
+    writer_source: current_project_ledger_only
+    latest_project_head: read_remote_at_use_time
+    notes: >-
+      本条目仅为 reference_only；维持现有项目单写负责人及全部验收合同。
+      本全局登记既不接管项目，也不宣布任何当前 NEXT 或 PASS。
