@@ -1,5 +1,7 @@
 # 人机治理仓库 v0.1：仅项目入口索引，不复制项目动态执行状态。
 # DRAFT: 此条目不产生项目采用或业务执行授权。
+# 路径字段只允许项目声明的非敏感仓库相对文档路径；不得出现绝对路径、..、通配符、file://、私人 home/profile/cache/log、凭据或带 token 的 URL。
+# repository 只能 owner/repo；索引不授予任何新的读取、写入或执行权限。
 schema_version: '0.1'
 registry_state: draft_not_active
 projects:

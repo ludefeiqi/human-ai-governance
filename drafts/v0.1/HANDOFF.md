@@ -62,3 +62,11 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 ## 6. 新窗口启动语（可复制）
 
 > 只读恢复项目 `PROJECT_ID`。请先实际读取已采用的独立治理仓库版本、projects.yaml、项目最新权威账本/AGENTS.md/固定合同，再按准确 ID 查询 Codex 线程和运行状态。输出最新 HEAD、现任单写负责人、仍在运行任务、有效授权和唯一 NEXT；凡版本、权限、任务或资源状态有冲突均停止。未经另行明确授权，不写仓库、不发任务、不接管 writer。
+
+## 7. 不可用状态与不重复执行（对 §2、§5 的明确例外）
+
+- `POLICY_UNAVAILABLE`：治理私库或该项目**实际采用的准确治理版本**无法远端核实；只读报告，不凭缓存、旧窗口或记忆宣称最新，不派工、不变更 writer。
+- `DISPATCH_CONFLICT`：已有 `(project_id,dispatch_id)`，但任务载荷摘要不同，停止；相同只读恢复既有状态和原线程/回执。
+- `DISPATCH_UNPROVEN`：新 R2/R3/副作用任务无法在获批项目**现有唯一权威入口**原子登记 `INTENT` 并读回，禁止派发，也不增设第二账本。
+- `HEAD_CONFLICT`：写入瞬间服务端拒绝旧 expected HEAD，停止；不得 force、自动 rebase 或用新工具规避。
+- 旧窗口失联不证明旧进程/云任务结束；新窗口先查唯一执行键、旧 writer、共享资源和剩余批准，无法确证时仅只读，不能抢写。
