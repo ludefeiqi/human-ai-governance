@@ -1,0 +1,23 @@
+{
+  "activation_receipt_version": 1,
+  "status": "APPROVED_FOR_GOVERNANCE_RELEASE_ONLY",
+  "source_reviewed_candidate_commit": "c2c94b2d5f531245d01275903f0e6b4e6366fa1c",
+  "source_candidate_manifest_sha256": "40aedb972835d8430ee57786d61fbfff2800355c1e95712d1c42d792f059c512",
+  "source_independent_review_ref": "https://github.com/ludefeiqi/human-ai-governance/pull/2#issuecomment-6047255771",
+  "source_independent_review_decision": "APPROVE_DESIGN",
+  "source_review_summary": "Independent Codex read-only review: 12/12 design cases PASS, seven findings closed; static DESIGN_ONLY",
+  "approval_source": "Current ChatGPT conversation: user's exact reply '批准' immediately after request to prepare final root promotion from c2c94b2d and formally release v0.1.0, governance repository only",
+  "approval_time_precision": "User message UTC clock timestamp unavailable; this record does not claim an exact user-message timestamp",
+  "approval_recorded_at_utc": "2026-10-07T21:36:27+00:00",
+  "approval_verified_by": "coordinating ChatGPT session observed user approval; no separate GitHub-signed human approval claimed",
+  "authorized_action": "RELEASE_GOVERNANCE_VERSION",
+  "release_target": "ludefeiqi/human-ai-governance/main",
+  "release_tag": "v0.1.0",
+  "root_manifest_sha256": "66f80ebaa94a03dda0ee6dfa515f2e1a2e3dbe03f07c8637c12fa1ff0f3834a1",
+  "root_review_required": true,
+  "approval_scope": "GOVERNANCE_REPO_ONLY",
+  "project_adoptions": [],
+  "project_writer_transfers": [],
+  "business_runtime_actions": [],
+  "status_note": "This document records authorization, not proof of PR merge, tag creation or runtime activation"
+}

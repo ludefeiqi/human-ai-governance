@@ -1,24 +1,27 @@
-# Human–AI Governance
+# Human–AI Governance v0.1.0
 
-**Status: DRAFT / REVIEW_REQUIRED / NOT_ACTIVE**
+**Status: RELEASED_GOVERNANCE / PROJECT_ADOPTION_NOT_AUTOMATIC**
 
-This is a private, standalone cross-project governance repository. Its current files are **review candidates only**, not active rules, project instructions, or authorization.
+This private repository holds the shared protocol for coordinating people, ChatGPT work windows and Codex. The **governance protocol is published** here; it is **not** an authorization token, a production control plane, or a substitute for project-specific rules and user permissions.
 
-## Review candidate v0.1
+## Published policies
 
-- [Governance design](drafts/v0.1/GOVERNANCE.md)
-- [Codex execution and receipt protocol](drafts/v0.1/CODEX-PROTOCOL.md)
-- [Cross-chat handoff](drafts/v0.1/HANDOFF.md)
-- [Review checklist and negative test cases](drafts/v0.1/REVIEW-CHECKLIST.md)
-- [Project registry draft](drafts/v0.1/projects.yaml)
-- [Exact SHA256 manifest](drafts/v0.1/MANIFEST.sha256)
+- [GOVERNANCE.md](GOVERNANCE.md) — authority, risk boundaries, single writer, HEAD-level checks and evidence
+- [CODEX-PROTOCOL.md](CODEX-PROTOCOL.md) — task cards, idempotent dispatch, Codex CLI/App Server receipts
+- [HANDOFF.md](HANDOFF.md) — safe cross-window recovery, conflict detection and failure stop
+- [projects.yaml](projects.yaml) — **entry index only**, no business task/NEXT replication
+- [AGENTS.md](AGENTS.md) — instructions for Codex *inside this governance repository*, not other projects
+- [REVIEW-CHECKLIST.md](REVIEW-CHECKLIST.md) — review scenarios and versioned change gates
+- [MANIFEST.sha256](MANIFEST.sha256) — SHA256 of the seven published root source files, including this README
 
-The snapshot is byte-preserved from its draft package. Any text within the draft saying the repository has not been created is a **historical draft statement**, not the current repository state.
+The exact first-reviewed candidate is preserved under [drafts/v0.1/](drafts/v0.1/), with the separate manifest and historical draft wording. Independent first review and corrected design approval: [PR #2](https://github.com/ludefeiqi/human-ai-governance/pull/2). The final root promotion requires an independent review of its own accurate diff. Release authorization is recorded separately under `releases/v0.1.0/`.
 
-## No automatic project adoption
+## No automatic adoption or execution
 
-The HOT/AUTH/BBS project remains separately managed at `ludefeiqi/dabing.lol`. Its frozen contract, GitHub ledger, issues, execution rights, and existing DOT/ROOT daily single-writer responsibility are **unchanged**.
+HOT/AUTH/BBS remains managed in **ludefeiqi/dabing.lol** under its existing project authority and DOT/ROOT ledger writer. The entry in `projects.yaml` is `reference_only` and `dispatch_enabled: false`. No project code, frozen v3.2 contract, project AGENTS, Issue, ledger, browser/identity/production setting or credentials changed as part of this governance release.
 
-The draft registry uses `reference_only` and `dispatch_enabled: false`. GitHub file presence does not grant permissions or imply loaded instructions.
+**Policy on GitHub != loaded agent instructions != a current user operation grant.** Each work window must read the effective policy version, live project authority and execution state before it may request a task. A new governance version never automatically overwrites existing project rules.
 
-No active policy release or tag has been published. To activate later: independent review of exact source SHA -> approved revision -> separate project adoption with verified writer handoff where applicable.
+## Updating this version
+
+Exact candidate + manifest -> independent read-only review -> explicit user approval bound to scope -> release-PR root diff review -> non-force merge/readback -> immutable Git tag. Later project adoption and any writer handoff require separate authority and evidence.
