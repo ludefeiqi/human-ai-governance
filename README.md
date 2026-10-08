@@ -1,72 +1,33 @@
-# Human–AI Governance · Versioned Policy
+# Human–AI Governance
 
-**Status: v0.1.0 published; v0.2.0 takes effect only after verified annotated Tag, exact policy Commit and explicit release approval. PROJECT_ADOPTION_NOT_AUTOMATIC.**
+## 当前交付状态
+本分支是 **v0.2.1 合理化优化候选**，不是正式发布。基线为正式 v0.2.0 Commit `7aced01a8c12e1bba5e810ce91ab425f4615d4a7`；已发布 Tag 不移动。本次不采用任何业务项目、不转移 writer、不派工、不自动升级已安装插件。
 
-This private repository holds the shared protocol for coordinating people, ChatGPT work windows and Codex. The **verified published version** is authoritative for its approved scope; it is **not** an authorization token, a production control plane, or a substitute for project-specific rules and user permissions.
+## 一个治理权威、多个可替换实例
+GOVERNANCE.md 按 G0—G6 归并稳定原则和职责；Global Controller Governance 是体系内规则权威，ChatGPT 实例负责有来源的治理判断，插件只是同步入口。项目账本与运行证据各守其事实领域。
 
-## Governance policy files (effective release must be verified)
+| 规范 | 唯一负责的细则 |
+| --- | --- |
+| GOVERNANCE.md | G0宪章、G1组织、G2版本、G3项目、G4授权、G5恢复、G6审计总原则 |
+| REGISTRY-PROTOCOL.md | 索引Schema、连续历史、A/B回执与时序 |
+| HANDOFF.md | 新窗口实际读取与状态解释、写口交接 |
+| CODEX-PROTOCOL.md | 有授权执行、INTENT、去重、回执及安全收口 |
+| CLIENT-CONTRACT.md | 可信同步、能力协商、分层报告与降级 |
+| REVIEW-CHECKLIST.md | 按规范检验，不另建审批规则 |
+| RULE-MAP.md | 非授权迁移对应及语义变更说明 |
+| AGENTS.md | 仅本仓库维护约束，保持原字节 |
 
-- [GOVERNANCE.md](GOVERNANCE.md) — authority, risk boundaries, single writer, HEAD-level checks and evidence
-- [CODEX-PROTOCOL.md](CODEX-PROTOCOL.md) — task cards, idempotent dispatch, Codex CLI/App Server receipts
-- [HANDOFF.md](HANDOFF.md) — safe cross-window recovery, conflict detection and failure stop
-- [projects.yaml](projects.yaml) — **entry index only**, no business task/NEXT replication
-- [AGENTS.md](AGENTS.md) — instructions for Codex *inside this governance repository*, not other projects
-- [REVIEW-CHECKLIST.md](REVIEW-CHECKLIST.md) — review scenarios and versioned change gates
-- [MANIFEST.sha256](MANIFEST.sha256) — raw-byte SHA256 list for the immutable v0.2.0 policy release (policy, GENESIS, validator, Schema, locked dependencies and tests); dynamic `projects.yaml` is deliberately excluded
+## 实现与测试
+registry/GENESIS.json 固定候选发布身份与初始索引；registry/validate_registry.py 只从授权 GET 核验；Manifest 包含固定政策及测试，不包含动态 projects.yaml。候选的初始项目列表没有改变；发布前须再次核 main 未漂移及列表没有遗漏。
 
-The exact first-reviewed candidate is preserved under [drafts/v0.1/](drafts/v0.1/), with the separate manifest and historical draft wording. Independent first review and corrected design approval: [PR #2](https://github.com/ludefeiqi/human-ai-governance/pull/2). The final root promotion requires an independent review of its own accurate diff. Release authorization is recorded separately under `releases/v0.1.0/`.
-
-## No automatic adoption or execution
-
-HOT/AUTH/BBS remains managed in **ludefeiqi/dabing.lol** under its existing project authority and DOT/ROOT ledger writer. The entry in `projects.yaml` is `reference_only` and `dispatch_enabled: false`. No project code, frozen v3.2 contract, project AGENTS, Issue, ledger, browser/identity/production setting or credentials changed as part of this governance release.
-
-**Policy on GitHub != loaded agent instructions != a current user operation grant.** Each work window must read the effective policy version, live project authority and execution state before it may request a task. A new governance version never automatically overwrites existing project rules.
-
-## Publishing another version
-
-Exact candidate + manifest -> independent read-only review -> explicit user approval bound to scope -> release-PR root diff review -> non-force merge/readback -> immutable Git tag. Later project adoption and any writer handoff require separate authority and evidence.
-
-## P2 Controlled Dynamic Registry · v0.2.0 (activation is Tag-gated)
-
-After formal policy release, this version adds:
-
-- deterministic strict YAML + JSON Schema validation in `registry/`;
-- immutable `registry/GENESIS.json` binding owner, release route, initial identities and the initial index raw SHA256;
-- a first-parent, no-delete tombstone chain with exact pre/post GitHub GET evidence;
-- separate lifecycle, registration and read-result accounting;
-- synthetic positive/negative pytest coverage and pinned dependencies.
-
-The immutable policy Manifest excludes the future dynamic `main/projects.yaml`; genesis binds the first index, while every later index is approved against its immediately preceding approved commit. Post-release registry PRs may change only `projects.yaml`. The v0.2.0 multi-file bootstrap via PR #5 must follow the previously effective v0.1.0 release review and explicit human release approval; the ordinary `projects.yaml`-only B approval path never approves its own policy bootstrap.
-
-Exact local commands:
-
-```bash
-python3 -m venv /private/tmp/hagov-registry-venv
-/private/tmp/hagov-registry-venv/bin/python -m pip install --disable-pip-version-check -r requirements-registry.lock
-/private/tmp/hagov-registry-venv/bin/python -m pytest -q
-/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-local
-/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-candidate
-/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . reviewer-readiness
+复现（使用已有隔离环境或经批准创建项目局部环境，不改全局依赖）：
+```sh
+python -m pytest -q -p no:cacheprovider
+python -m registry.validate_registry --root . validate-local
+python -m registry.validate_registry --root . validate-candidate
 git diff --check
 ```
+发布后的 audit-main/pre/post/audit-chain 必须给准确外部 `--expected-policy-commit`；候选 Tag 不存在时 LIVE 验证必须 HOLD。B 是 owner所发布AI证明的较低保证等级，不是第二GitHub actor或真人签名。
 
-Local success is not CI, GitHub review, owner approval, merge, Tag publication, project adoption or business acceptance. Until the annotated `v0.2.0` Tag and all bound evidence exist, retain v0.1.0 semantics and HOLD dynamic discovery.
-
-### P2.1 trust-chain boundary
-
-Owner comments never prefill GitHub's future `created_at`. Under policy mode A, a different GitHub account's exact-head `APPROVED` Review must precede owner approval and merge. Under a formally activated mode B, a distinct AI R0 assessment is retained as an owner-posted **lower-assurance** attestation tied to the latest exact-head CI and a separate owner approval; it does not claim a second GitHub account. Without a verified effective policy Tag, no A-to-B fallback or automatic approval is permitted.
-
-Cold-start project reads require an externally pinned immutable policy commit, all 20 policy files checked by SHA256, a complete first-parent approval chain, and an atomic audit-plus-read `scan_authorized_main` transaction with a fresh `main` HEAD check before and after each authorized project. No reusable scan token exists; raw YAML status is never scan authority. `validate-candidate` allows future updated index bytes as a schema-only CI preflight, not registration approval. `audit-main` requires an external `--expected-policy-commit`.
-
-
-### P2 trust boundaries and assurance grades
-
-The targeted fixes address forged reusable scan tokens, stale registry snapshots, PR rename loopholes and incomplete remote manifest validation. They confer no new project authority. A remains an actual distinct GitHub account APPROVED Review and is currently unavailable in the single-owner private repo. The lower-assurance B mode (independent AI R0 evidence + exact-HEAD CI + owner approval + verified merge lineage) is limited to discovery-only metadata. Its machine verifier is part of the v0.2.0 policy bytes, but it is usable only after independent review, explicit release approval, a verified annotated v0.2.0 Tag and a caller-pinned Commit; the presence of files or a Draft PR never activates it.
-
-
-### P2 Gate 1: single-owner B evidence verifier (only after formal release)
-
-This version's immutable GENESIS selects `SINGLE_OWNER_AI_R0_ATTESTED` for future discovery-only registry updates after formal release, with a read-only `pre-merge/post-merge/audit-chain` verifier. B checks the latest exact-HEAD GitHub Actions `validate` run, owner-posted AI R0 attestation and a *separate* owner approval comment, immutable comment IDs/body hashes, chronological order and merged bytes/first parent. The owner account posting an AI summary is **not** proof of a second GitHub reviewer or independent AI identity. The original A-mode verified GitHub reviewer path remains available for a differently released GENESIS. The existence of this code is not a bootstrap release approval: v0.1.0 stays effective until the verified v0.2.0 Tag and separately authorized plugin adoption; future R0 project access still needs authorization independent from discovery metadata.
-
-
-Policy provenance binding tightened after independent R0 review: public `pre-merge`, `post-merge` and `audit-chain` all require an external exact policy Commit pin and verify the immutable Tag and full fixed-policy Manifest before selecting A or B from GENESIS. Injecting a local B dictionary when the official policy is A is a HOLD, not a fallback; tests cover the exact attack.
+## 插件覆盖包
+clients/chatgpt-plugin 为同一现有插件的更新候选，不创建新插件/不改受众。升级前核 expected_release_id，使用正式v0.2.0的固定来源锁；不把未发布v0.2.1代码用于正式校验。附适配规则与静态/合成测试，未安装及未跑新窗口不能宣称同步完成。保留已有未替换文件。

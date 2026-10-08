@@ -3,7 +3,7 @@
   "status": "ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG",
   "governance_repository": "ludefeiqi/human-ai-governance",
   "immutable_owner_account": "ludefeiqi",
-  "release_tag": "v0.2.0",
+  "release_tag": "v0.2.1",
   "release_commit_source": "dereferenced_annotated_tag",
   "registry_branch": "main",
   "registry_path": "projects.yaml",

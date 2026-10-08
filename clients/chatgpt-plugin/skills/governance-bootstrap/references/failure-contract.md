@@ -1,0 +1,6 @@
+# 分层失败与覆盖合同
+
+POLICY_SOURCE_VERIFIED不代表全部原始hash已算；POLICY_HASH_VERIFIED须实际20项通过。SOURCE_VERIFIED仅来源文件，STATE_RESTORED须真实账本内容解释，RUNTIME_UNKNOWN不能变成任务不存在。GLOBAL_R0_READY不等于业务PASS/写权/平台排他锁。
+VALIDATOR_UNAVAILABLE或REGISTRY_UNVERIFIED不深扫未经核准目录；policy版本/hash冲突GLOBAL_R0_HOLD，只报告独立可证事实。单项目403、证据缺项或运行域不可查仅局部BLOCKED/PARTIAL，不虚构全量覆盖。blocker需包含对象、动作、证据、缺口、允许后续及责任人。
+报告：plugin_version、policy_tag/commit/integrity、registry_head/coverage、project_id/project_head/ledger_blob、source_integrity、state_restore、DECLARED_NEXT、writer、runtime、authorization、INFERRED建议、authority_effect:NONE。
+未实际发布、安装、跨窗口读资源时，不报HOST_COLD_START_PASS；一个真实登记项目不能证明多项目能力。源码测试、合成验证、真实工具读取、真实业务接受分别列。

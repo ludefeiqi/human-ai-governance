@@ -102,6 +102,8 @@ def b_fixture(schema):
         "total_count": 1,
         "check_runs": [copy.deepcopy(routes[f"repos/{REPO}/check-runs/{CI_ID}"])],
     }
+    routes[(f"repos/{REPO}/commits/{SHA_B}/check-runs", (("filter", "all"), ("per_page", "100")))] = {
+        "total_count": 1, "check_runs": [copy.deepcopy(routes[f"repos/{REPO}/check-runs/{CI_ID}"])]}
     routes[PR_ENDPOINT]["merged_at"] = None
     mock_released_policy_routes(routes, REPO, "e" * 40, genesis)
     return genesis, routes
@@ -196,7 +198,7 @@ def test_b_post_merge_approval_cannot_be_backfilled(schema):
     routes[PR_ENDPOINT].update({"merged": True, "state": "closed", "merged_at": OWNER_TIME, "merge_commit_sha": SHA_C})
     with pytest.raises(RegistryError) as caught:
         validate_post_merge(FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
-    assert caught.value.code == "OWNER_APPROVAL_AFTER_MERGE"
+    assert caught.value.code == "AI_B_OWNER_APPROVAL_MISSING"
 
 
 def test_a_explicit_mode_not_implicitly_changed_to_b_by_receipts(schema):

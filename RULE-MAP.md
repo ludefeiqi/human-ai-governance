@@ -1,0 +1,30 @@
+# RULE-MAP.md — 非授权条款归并与语义差分
+
+基线：v0.2.0 / 7aced01a8c12e1bba5e810ce91ab425f4615d4a7。本表是审查索引，不是另一个治理规则来源。新条款只能随准确新政策正式发布生效；旧Tag与业务账本不变。
+
+| 基线内容 | 新的唯一归属 | 分类 | 检验方式 |
+| --- | --- | --- | --- |
+| GOVERNANCE §1 用户/窗口/执行者/仓库 | G1-ROLE-01、G0-IDENTITY-01 | 身份澄清，不扩权 | 一权威/实例/插件职责及禁止项 |
+| §2 来源、领域合同、冲突 | G0-AUTHORITY-02、G0-FACT-05 | 归并 | 不按最新文本跨领域覆盖 |
+| §3 登记/采用/原writer | G3-REGISTRY-01、HANDOFF H5 | 澄清 | 登记/访问/采用/执行四状态 |
+| §4 并行、写前后、无硬锁 | G4-WRITE-02 | 沿用 | 真实HEAD/允许路径/冲突停止 |
+| §5 R0—R3、平台拒绝 | G4-SCOPE-01、G0-SAFETY-06 | 沿用 | R0简化不越界 |
+| §6 PASS/清理/避免重复 | G6-EVIDENCE-01、G6-REVIEW-02 | 归并 | 不因静态/合成绿报业务通过 |
+| §7 固定版本、敏感信息、AGENTS | G2-SOURCE-02、G6-SECRET-03 | 沿用 | 来源实际加载，不存秘密 |
+| §8 发布/停止顺序 | G2-RELEASE-01、G0-CHANGE-04 | 沿用 | 自我升级不自批 |
+| §9 CAS/路径/批准/R0快速通道 | G4-WRITE-02、REGISTRY R2/R3、G2-RELEASE-01 | 去重 | 服务端条件、准确scope与精度 |
+| P2追加来源/墓碑/3维报告 | REGISTRY R1/R2/R7/R8 | 归并 | 完整raw hash与连续链 |
+| P2旧“必须第二GitHub Review” + B增补 | REGISTRY R4/R5 | 纠正文档冲突 | GENESIS明确选择，不自动降级 |
+| CODEX §1—§8 | CODEX E1—E8 | 保留实施内容、去掉重复审批规则 | 六字段、原INTENT、停止/回执 |
+| HANDOFF旧项目限定启动/附录 | HANDOFF H1—H7 | 澄清全局默认/按范围恢复 | 不需先提供项目ID，不抢writer |
+| REVIEW旧“未发布/缺第二账号即HOLD” | REVIEW R1—R6 | 去除过期断言/引用规范 | 不以checklist创设相反批准条件 |
+| 插件旧pin v0.1.0 | clients覆盖包 + CLIENT C1—C7 | 待批准的客户端采用变更 | 候选固定已发布v0.2.0，不采用未发布v0.2.1 |
+| post-merge重复运行当前latest CI判据 | REGISTRY R6 + _verify_historical_ci | **真实语义变更** | 合并前最新失败拒绝；合并后新run不倒写历史 |
+| post-merge将后发评论当旧授权 | REGISTRY R6 + evidence_before | **真实语义变更** | 截点前未编辑原证据；原记录缺失/被编辑仍拒绝 |
+| 路径核验等同项目恢复的表述 | G5-RESTORE-01、HANDOFF H4、CLIENT C5 | 报告语义澄清 | source/state/runtime分别验收 |
+
+## 不变项
+AGENTS.md 原字节、projects.yaml 原列表与原始字节、已有writer、R0—R3权限边界、A/B保证等级、固定Tag/source pin、写后读回、敏感证据禁止、仅现任writer更新项目账本。不增加管理Agent、不设第二业务数据库、不改main/旧Tag。
+
+## 可评审范围
+G0—G6首先是领域划分，不为每组新增文件或审批层。除历史时序语义与明确标注的客户端采用外，其余按本表证明是沿用/澄清/去重。下一发布版本标为v0.2.1候选，不以版本号预先宣称修改无风险。当前初始目录未变；正式发布前main若漂移必须重对账。

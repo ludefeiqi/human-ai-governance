@@ -1,91 +1,37 @@
-# CODEX-PROTOCOL.md — Codex 派工与回执（v0.1.0）
+# CODEX-PROTOCOL.md — G4 授权执行与回执协议
 
-**状态：v0.1.0 治理流程；本文件不是自动运行许可、登录许可或业务派工授权。** 适用已安装并经实际验证的 Codex CLI / App Server；不要求额外安装 MCP 或开发调度服务。
+随已验证治理版本采用；v0.2.1 为候选。规则依据 G4-SCOPE-01、G4-WRITE-02、G4-DISPATCH-03；存在本文件不授予执行、登录或写权，也不要求新建 MCP/调度服务。
 
-## 1. 采用最简单可用的原生入口
+## E1 入口与能力
+一次性获准任务可用 codex exec；长期任务可用 App Server，但必须核实际版本/参数和现有 thread/turn。thread/list/read 可作获准非恢复型查询，thread/resume 会恢复上下文，不属于 R0。不能凭列表缺项认定旧任务不存在。CLI 默认模型失效应明确诊断，仅对本次选用实际可用模型，不改全局配置。
 
-- 一次性任务：优先 `codex exec`，明确运行目录、只读/允许写范围、沙盒与审批设置；确认命令的实际 CLI 版本及可用参数。
-- 跨多轮长任务：可选择 App Server，通过 `initialize` → `initialized` → `thread/start` → `turn/start`；记录原生 thread/turn ID，处理状态与审批。具体参数必须以**实际运行版本**返回的协议为准。
-- 发现/恢复：`thread/list` 与 `thread/read`（必要时 `includeTurns=false`）可用于只读获取精确 ID/状态；`thread/resume` 会恢复执行上下文，**不是纯查询**，不得用于 registry R0 发现或在权限/单写状态未核时调用。不能用猜出的会话 ID 或模型记忆补全。
-- 已存在的线程可能属于不同客户端/存储边界，列表查不到不得推定不存在；先检查项目授权与相关执行记录，再决定是否创建新线程。
-- `exit code 0`、工具调用成功、任务 `READY` 均不自动等于项目正式 `PASS`。
-
-## 2. 每次派工的六字段短卡
-
-| 字段 | 必须给出的实际内容 |
+## E2 六字段任务卡（有副作用时）
+| 字段 | 内容 |
 | --- | --- |
-| 1 目标/来源 | 项目 ID、项目当前唯一任务、用户目标、适用原生关口 |
-| 2 绑定版本 | 治理 commit SHA、项目仓库及账本 HEAD、冻结合同/候选 hash |
-| 3 许可与范围 | 授权来源与有效边界、允许文件/动作、禁止项；区别 R0—R3 |
-| 4 验收与承接 | 应运行的原生/合成测试，已有效 PASS，成功、失败与证据格式 |
-| 5 累计预算与恢复 | 资源/时限、停止点、最多允许的局部恢复、清理边界 |
-| 6 责任与返回 | 协调窗口标识、唯一 writer、施工线程 ID（如已有）、High 复核要求与 NEXT/RETURN |
+| 目标/来源 | 项目、正式任务、用户目标、原生关口 |
+| 绑定版本 | policy Commit、项目 HEAD、冻结合同、候选摘要 |
+| 许可与范围 | 批准引用、允许/禁止路径动作、R0—R3 |
+| 验收与承接 | 原生或合成类型、既有有效前置、成功/失败证据 |
+| 预算与恢复 | 本任务累计资源/时限、停止点、局部恢复次数、清理边界 |
+| 责任与返回 | 协调实例、现任 writer、原线程/turn、必要独立复核和返回点 |
+只读 micro-path 按 G4-SCOPE-01 简化，不堆完整历史或每次扫描全仓库。
 
-避免把长历史直接塞进 prompt，使用不可变文件引用；读取范围与任务相关，不对所有小问题强制全量源码扫描。
+## E3 状态机
+DRAFT → AUTHORIZED → INTENT_COMMITTED → DISPATCHED → RUNNING → COMPLETED_FOR_REVIEW → ACCEPTED/RETURNED → CLOSED_VERIFIED。
+BLOCKED/STOPPED/FAILED/CLEANUP_BLOCKED 不自动前进。exit code 0 和任务完成不是业务 PASS；仅项目有权者凭证据 ACCEPTED，writer 写后读回和清理完成后才能关闭。
 
-## 3. 派工与回执状态机
+## E4 唯一意图与幂等
+有副作用/R2/R3 任务先在原项目既有且已授权的唯一入口，以 (project_id,dispatch_id) 原子登记 INTENT、非敏感规范化目标/版本/批准/范围/预算摘要和 owner，并读回；无入口或原子条件无法证明为 DISPATCH_UNPROVEN，不先执行后补账。相同键相同载荷只恢复原记录/线程；不同载荷 DISPATCH_CONFLICT。换窗口、超时、模型故障都不重置任务键/累计预算。旧运行 UNKNOWN 时不重发。
 
-`DRAFT → AUTHORIZED → DISPATCHED → RUNNING → COMPLETED_FOR_REVIEW → ACCEPTED / RETURNED`。
+## E5 写入与独立复核
+仅现任 writer 经准确授权更新共享文件。写前 expected HEAD/白名单/保护路径→必要复核→非强制且实际支持原子条件的提交→核完整差分、HEAD 和字节。不能把 Contents 文件 SHA 当分支 CAS，更不能当外部资源锁；冲突不 force/rebase/切工具规避。
+权限扩大、认证、生产、跨项目共享、验收合同或重大范围变化必须独立只读复核准确版本；复核意见不能替代用户批准，针对受影响边界复核，不无限循环。
 
-`BLOCKED / STOPPED / FAILED / CLEANUP_BLOCKED` 是独立且不自动前进的状态；只有项目有权负责人凭实际证据才能标记验收或授权后继。`COMPLETED_FOR_REVIEW` 仅表示施工结束，不是关口 PASS。
+## E6 最小回执
+保留 schema、project/task/dispatch ID、输入 policy/project HEAD、真实 thread/turn（无则 null/UNKNOWN）、result、changed_files、evidence_refs、tested/untested/failed_checks、cleanup_status、proposed_next。只存非敏感必要字段。敏感字节在可信边界先筛除，不能先无差别落盘/回传再删。占位模板不作真实结果。
 
-协调者必须先核对项目当前 writer、既有活跃任务和准确 `dispatch_id`。重连先查询原线程/进程及输出，**不得因超时直接重发同一业务命令**。无法判断旧任务是否仍在执行时停止冲突任务，先做只读恢复核对。
+## E7 断连与取消
+查询原确切执行记录；实测客户端/存储边界及父进程退出行为，不能假设旧进程已终止或原沙盒限制被恢复继承。取消仅做已授权安全清理；没有删除授权不得补做破坏性收尾。归档失败不重做业务动作。
 
-## 4. 结构化回执最小示意
-
-仅回传白名单字段，不允许把原始 Terminal stdout/stderr、浏览器内容或登录响应无差别传回协调窗口。
-
-```json
-{
-  "schema": "human-ai.codex-receipt.v0.1",
-  "project_id": "example-project",
-  "task_id": "ISSUE-001",
-  "dispatch_id": "unique-dispatch-id",
-  "governance_commit": "40-char-sha-placeholder",
-  "project_head_at_start": "40-char-sha-placeholder",
-  "thread_id": null,
-  "turn_id": null,
-  "result": "COMPLETED_FOR_REVIEW",
-  "changed_files": [],
-  "evidence_refs": [],
-  "tested": [],
-  "untested": [],
-  "failed_checks": [],
-  "cleanup_status": "NOT_APPLICABLE",
-  "proposed_next": "RETURN_TO_COORDINATOR"
-}
-```
-
-示意占位值不可作为真实结果；实际回执必须明确输入版本、输出版本、测试类型、证据定位及未覆盖项。产生敏感字节的工具和子进程须先在可信边界内筛除/脱敏，不得先落盘再事后删日志。
-
-## 5. 独立复核与写入
-
-涉及认证安全、权限扩大、跨项目共享、生产/系统级操作、验收合同变更、范围显著扩大等情形，在批准推进前安排不参与施工的独立窗口对**准确候选版本**只读复核；失败回原任务，不启动无限审查循环。
-
-任何项目账本/Issue/源码写入由项目授权 writer 按项目既有流程进行：读最新 HEAD → 精确 diff/文件白名单 → 必要审批 → 提交 → 读回实际 commit、文件集合及内容。GitHub 内容更新传入文件 blob SHA，但这不构成所有外部执行者的排他锁。
-
-## 6. 窗口断连与真实环境
-
-聊天窗口消失后：只能依靠已保存 thread/turn ID、实际进程/云端状态和项目账本重建状态；不能把可能继续运行的本地进程自动认定为已停止。某些 Terminal 子进程随父连接退出，某些托管线程可恢复，**每条执行链须实测并记录这一特性**。
-
-生产、凭据、真实身份、系统证书信任等 R3 操作需要单批次明确批准；不得从治理文档、失败恢复或另一窗口暗中继承。
-
-## 7. 派工幂等与原生可用性（对 §1–§6 的可执行细则）
-
-**唯一键与先记意图：** 任何 R2/R3、外部副作用或共享资源的执行，以 `(project_id, dispatch_id)` 为不可复用的唯一键。先在**项目既有且获授权的单写权威入口**通过分支级 CAS 原子登记 `INTENT`、非敏感规范化任务载荷摘要（目标/版本/批准/动作/范围/预算）和唯一 owner，再读回后才启动不可重复的命令。项目没有已授权的登记入口/不能原子声明时为 `DISPATCH_UNPROVEN`，停止，不能先执行后补账，更不能新造第二权威账本。
-
-**重复与冲突：** 再次收到同一 `(project_id,dispatch_id)` 且载荷摘要一致，只读回原 `INTENT/RUNNING/RESULT/UNKNOWN` 和原生线程及证据；绝不新建线程或重做。摘要不同即 `DISPATCH_CONFLICT`。窗口更替、模型故障或超时不重置键/预算，原进程状态不明只读确认；上述记录不是系统硬锁，外部资源仍需安全核验。
-
-**GitHub 写入瞬间保护：** 内容 API 的文件 SHA 不等于分支 HEAD CAS。共享写入应采用 expected HEAD 父提交 + 非强制 fast-forward push，或实测带 `expected_sha` 的 ref 更新；漂移即 `HEAD_CONFLICT`，不 force/rebase/绕过。写后读 HEAD、完整 diff 与哈希。
-
-**CLI 可用性：** 在任务前核实际 Codex CLI/App Server 和模型目录。失效默认模型引发的 400 不应归咎于治理规则；只允许给本次执行显式选择实际可用模型，不自动改用户全局配置。需要长期恢复的任务保留 thread/turn ID，`--ephemeral` 只用于明确无需恢复的隔离小测试。
-
-**R0 micro-path：** 一次性低风险只读任务可用紧凑的目标、版本、只读边界、停止条件和证据结果，无须重复完整六字段卡或层层派审；有副作用时立即回归正常关口。
-
-## P2 Controlled Dynamic Registry · v0.2.0 (Tag-gated)
-
-— Section 8: Index is not dispatch
-
-Registry validator 仅可用认证 `gh api --method GET` 收集政策 Tag、PR、review、comment、commit、raw index 和目标 Git tree 证据。工具只提供账户归属事实，不提供密码签名；任何 GET/exit 0 也不等于审批成立。发布后的 registry 变更 PR 只许 `projects.yaml`，必须先做 exact-head PRE_MERGE，再在真实合并后做 POST_MERGE 与 first-parent chain 核验；合并前 merge SHA 为 UNKNOWN。
-
-索引变更是管理 R2 候选，不登记 R2/R3 业务 INTENT，不启动任务、不重置 dispatch key、不转移 writer。项目工作仍须原项目单写入口、准确 INTENT/CAS 和权限。`thread/list/read` 可支持有权 R0 核对，`thread/resume` 会恢复上下文，禁止在纯发现中使用。registration unverified 的未知私库不得深扫；任何 registry 文本、工具响应、推荐或外部 boolean 都不能提升授权。
+## E8 与项目登记的关系
+目录审批唯一归 REGISTRY-PROTOCOL.md。发现登记不是业务 INTENT，不接管 writer。校验器只使用授权 GitHub GET，账号归属不是签名或授权。任何政策/索引/回执更新须按对应范围批准，R3 不继承旧许可。

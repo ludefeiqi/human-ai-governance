@@ -366,8 +366,8 @@ def test_owner_comment_chronology_and_integrity(schema, mutate, expected):
 @pytest.mark.parametrize(
     ("merged_at", "expected"),
     [
-        ("2026-10-08T00:59:00Z", "OWNER_APPROVAL_AFTER_MERGE"),
-        ("2026-10-08T01:02:03Z", "OWNER_APPROVAL_AFTER_MERGE"),
+        ("2026-10-08T00:59:00Z", "OWNER_APPROVAL_MISSING"),
+        ("2026-10-08T01:02:03Z", "OWNER_APPROVAL_MISSING"),
         ("bad", "TIME_INVALID"),
     ],
 )
