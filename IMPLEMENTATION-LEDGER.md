@@ -25,7 +25,7 @@
 | S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **PASS_DESIGN：修订后独立只读 APPROVE_DESIGN** |
 | S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **PASS**（仅静态候选，不授权运行） |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **PASS**（仅候选纯静态上下文） |
-| S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **NOT_STARTED** |
+| S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
 | S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
 | S7 插件采用与冷启动 | 受控更新现有插件，并做真实新窗口恢复 | 正式政策已发布且插件采用另批 | Plugin CAS 更新、新 Chat 验收、真实项目恢复 | 当前 release ID 读回、真实冷启动、无自动 writer 转移 | **HOLD_FOR_SEPARATE_PLUGIN_APPROVAL** |
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：按已审设计实施 S4 的 R0 真实工具适配与权限探测，仅在授权范围核已暴露 GitHub、既存 Codex 观察与 MCP 工具发现；对不可用/权限拒绝/运行 UNKNOWN 真实降级，不执行任务、不重派、不改变工具连接。S5 前需 S4 准确 CI 与独立验收 PASS；S6/S7 各需单独明确批准。
+当前 **唯一 NEXT**：S4 先在准确候选 HEAD 验证原生 GitHub CI，并由独立 R0 复核真实探针与 adapter 安全合同。若有阻断仅修准确范围；未经 S4 独立 PASS 不得进入 S5。S6 正式发布及 S7 插件采用继续分开授权。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -129,3 +129,15 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 专用本地已装依赖 Python 环境 `327 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`，并做三类真实候选目录静态试载。独立 Codex `gpt-5.6-sol` / read-only / ephemeral 针对准确候选差分及 S3 设计返回 **APPROVE_DESIGN**，未发现本范围新阻断；审查者在其沙盒尝试用系统 Python 直接试载时缺少 jsonschema，未独立复跑测试，因此其结论是设计复核，不是测试复验。
 - **S3 PASS_STATIC_CONTEXT_CANDIDATE**：本候选仅提供结构化装载计划；没有正式政策远端完整验证、已授权工具实际调用、真实模型上下文 token/耗时实测、业务能力执行或插件采用。前述上下文字符数仅是序列化候选正文的精确字符计数。
 - 唯一 NEXT 转 S4；S4 不因本结论自动派工或授权。S6/S7 发布和采用关口维持 HOLD。
+
+
+## 12. S4 R0 真实工具路由候选（2026-10-09，待独立复审）
+
+- 当前基础：S3 已审并通过的候选 `56437b42c115b3b0544fcaeaaa6015c24d4b8a21`；S3 通过账本 `c0fbb0b92f0557164b8235c2ce1d6a2ab7dcee60`，CI job `113459645411` completed/success；该时点本地分支 HEAD 与 PR #6 远端 Draft HEAD 相同，正式 main `7aced01a8c12e1bba5e810ce91ab425f4615d4a7` 未变。
+- **真实 GitHub R0**：本次会话通过已连接 GitHub 的 `get_pr_info`、`fetch_file` 读取私有 Governance PR #6 和同分支 `IMPLEMENTATION-LEDGER.md`；Mac 上 `gh api --method GET repos/ludefeiqi/human-ai-governance` 返回实际私库元数据。只证明此范围当前真实只读能力，不推断其它项目的读取或业务写权限。
+- **真实 Codex R0**：Mac 已装 `codex-cli 0.161.0`、实际存在 App Server 进程。按本机 CLI 生成协议 Schema 读取 `InitializeParams` / `ThreadListParams`；启动临时 stdio 只读观察端，真实 `initialize`、`thread/list` RPC 成功，限定治理工作目录及 /tmp 与 /private/tmp 别名，记录数 0，nextCursor=false，并已停止临时观察端。**现存特定线程或执行后态为 RUNTIME_UNKNOWN**，没有调用 `thread/read`（无匹配 ID）、`thread/resume`、`thread/start`、`turn/start`，也未新建工作线程或重派原任务；真实进程存在不等于原线程有效。
+- **真实 MCP 暴露**：当前 Chat host 可枚举 GitHub、Remote Desktop Commander 和 PENEE Multica MCP 的暴露方法；GitHub 与 RDC 实际 R0 方法已经返回。只从当次 tool metadata 发现，不把工具说明或安装记录当权限，未连接新工具；无直接 Codex MCP 暴露，Codex 探针来自 Mac 原生 App Server。
+- 新增 `registry/route_tool_adapters.py`：硬编码三类 S3 固定任务到五个只读方法的候选路由，并以 scope+方法+权限证据的确定结构生成 **R0_ROUTE_PROPOSAL**；仅消费来自宿主已核只读探针的观测记录，不主动调用、重连、授权或探测工具。自然语言、MCP 描述、非法 method、错误 scope、未知工具、字段注入及含控制字符的字段一律拒绝。候选输出永远 `invocation=FORBIDDEN_IN_CANDIDATE`、`dispatch_authorized=false`、`runtime_permission_granted=false`、`tools_invoked=0`，报告外部 TASK_VERIFIED 只表示待宿主再校验证据，不能自行提升权限。
+- 后备工具只在主路径 `TOOL_UNAVAILABLE / NOT_CONFIGURED` 且宿主明确允许、备选同 scope 已读探针可用时形成 **候选**；遇 `AUTHORIZATION_BLOCKED / RUNTIME_UNKNOWN / EFFECT_UNKNOWN` 或未探测均 HOLD，不改用 RDC/执行接口绕过。Codex 当前仅规划 `thread/list`；`thread/read includeTurns=false` 被登记为严格只读候选但无既有线程 ID，未宣称真实读取验收完成。
+- 对应 41 项 S4 定向测试；全量 `368 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`（approval_verified=false、registry_trusted=false）；Manifest 47 项且变动文件 raw SHA 重算；实际试载三个候选路由均零内部工具调用和零派工。实际 R0 探针由宿主/短命只读进程执行，因此**不能**把候选适配器的 tools_invoked=0 误读为整个验收阶段零只读查询。
+- 阶段裁定：**S4 IMPLEMENTED_CANDIDATE / REVIEW_PENDING**。本段仅为候选和当次观察事实；真实权限和特定工作运行状态必须在使用时再核。准确新 HEAD GitHub CI 与独立 R0 审查通过后才能判 S4 PASS；未完成独立复核前 S5–S7 不推进。

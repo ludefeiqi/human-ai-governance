@@ -65,6 +65,7 @@ FIXED_POLICY_TEST_FILES = {
     "tests/test_transitions_and_manifest.py",
     "tests/test_capability_catalog.py",
     "tests/test_capability_routing.py",
+    "tests/test_tool_adapters.py",
 }
 OPTIMIZATION_POLICY_FILES = {
     'CLIENT-CONTRACT.md',
@@ -90,6 +91,7 @@ OPTIMIZATION_POLICY_FILES = {
     'registry/capabilities/tool.route.json',
     'registry/validate_capabilities.py',
     'registry/route_capabilities.py',
+    'registry/route_tool_adapters.py',
 }
 RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES | OPTIMIZATION_POLICY_FILES
 
