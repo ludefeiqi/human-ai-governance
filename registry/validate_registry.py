@@ -53,6 +53,15 @@ FIXED_MANIFEST_BASE = {
     "registry/validate_registry.py",
     "requirements-registry.lock",
 }
+FIXED_POLICY_TEST_FILES = {
+    "tests/__init__.py",
+    "tests/helpers.py",
+    "tests/test_github_evidence.py",
+    "tests/test_project_sources.py",
+    "tests/test_strict_reader.py",
+    "tests/test_transitions_and_manifest.py",
+}
+RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES
 
 
 class RegistryError(Exception):
@@ -387,12 +396,7 @@ def validate_manifest(root: Path, manifest_path: Path) -> dict[str, str]:
         entries[relative] = digest
     if "projects.yaml" in entries:
         raise RegistryError("MANIFEST_DYNAMIC_INDEX", "dynamic projects.yaml must not be in policy manifest")
-    discovered_tests = {
-        path.relative_to(root).as_posix()
-        for path in (root / "tests").rglob("*.py")
-        if "__pycache__" not in path.parts
-    }
-    expected_entries = FIXED_MANIFEST_BASE | discovered_tests
+    expected_entries = RELEASE_POLICY_FILESET
     missing = sorted(expected_entries - set(entries))
     extra = sorted(set(entries) - expected_entries)
     if missing or extra:
@@ -550,9 +554,12 @@ def validate_pre_merge(
     if not SHA40_RE.fullmatch(base_sha):
         raise RegistryError("PR_BASE_INVALID", "PR base SHA is missing or invalid")
     files = _pages(api, _repo_endpoint(repository, f"pulls/{pr_number}/files"))
-    filenames = [item.get("filename") for item in files]
-    if filenames != [genesis["registry_path"]] or files[0].get("status") == "removed":
-        raise RegistryError("PR_FILES_FORBIDDEN", "registry update PR may change only projects.yaml")
+    # A rename to projects.yaml is NOT a projects.yaml-only modification.
+    if (len(files) != 1 or
+            files[0].get("filename") != genesis["registry_path"] or
+            files[0].get("status") != "modified" or
+            "previous_filename" in files[0]):
+        raise RegistryError("PR_FILES_FORBIDDEN", "registry update may only modify the existing projects.yaml")
     current_raw, _ = _content_bytes(api, repository, genesis["registry_path"], expected_head)
     previous_raw, _ = _content_bytes(api, repository, genesis["registry_path"], base_sha)
     current = load_index_bytes(current_raw, schema)
@@ -773,36 +780,6 @@ def _registry_branch_head(api: Api, genesis: Mapping[str, Any]) -> str:
     return head
 
 
-_VERIFIED_SNAPSHOT_SEAL = object()
-
-
-class VerifiedRegistrySnapshot:
-    """Ephemeral, immutable scan capability minted only after full GitHub R0 provenance checks.
-
-    A YAML mapping claiming registration=verified is not a capability.
-    """
-
-    __slots__ = ("index_head", "policy_commit", "index_sha256", "_canonical_index", "_seal")
-
-    def __init__(
-        self, index: Mapping[str, Any], raw: bytes, index_head: str,
-        policy_commit: str, seal: object,
-    ) -> None:
-        if seal is not _VERIFIED_SNAPSHOT_SEAL:
-            raise RegistryError("REGISTRY_CHAIN_UNVERIFIED", "only verified GitHub provenance can mint a scan snapshot")
-        self.index_head = index_head
-        self.policy_commit = policy_commit
-        self.index_sha256 = _sha256(raw)
-        self._canonical_index = _canonical_json(index)
-        self._seal = seal
-
-    def project_entry(self, project_id: str) -> Mapping[str, Any] | None:
-        return json.loads(self._canonical_index)["projects"].get(project_id)
-
-    def report(self) -> dict[str, Any]:
-        return build_report(json.loads(self._canonical_index))
-
-
 def verify_policy_sources_from_immutable_commit(
     api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
     expected_policy_commit: str,
@@ -827,15 +804,18 @@ def verify_policy_sources_from_immutable_commit(
         if path in manifest or path == "projects.yaml":
             raise RegistryError("RELEASE_MANIFEST_INVALID", "duplicate or dynamic index in immutable manifest")
         manifest[path] = digest
-    required = {
-        "registry/GENESIS.json",
-        "registry/projects.schema.json",
-        "registry/validate_registry.py",
-    }
-    if not required.issubset(manifest):
-        raise RegistryError("RELEASE_MANIFEST_INCOMPLETE", "missing trusted policy entry points")
-    actual = {}
-    for path in sorted(required):
+    # A policy tag is not trustworthy merely because its three executable
+    # entry points hash correctly.  Check the *entire* immutable contract.
+    missing = sorted(RELEASE_POLICY_FILESET - set(manifest))
+    extra = sorted(set(manifest) - RELEASE_POLICY_FILESET)
+    if missing or extra:
+        raise RegistryError(
+            "RELEASE_MANIFEST_FILESET_MISMATCH",
+            "immutable release manifest must cover the complete fixed policy",
+            missing=missing, extra=extra,
+        )
+    actual: dict[str, bytes] = {}
+    for path in sorted(RELEASE_POLICY_FILESET):
         raw, _ = _content_bytes(api, repo, path, expected_policy_commit)
         if _sha256(raw) != manifest[path]:
             raise RegistryError("RELEASE_FILE_HASH_MISMATCH", "immutable policy file has wrong hash", path=path)
@@ -854,18 +834,17 @@ def verify_policy_sources_from_immutable_commit(
         raise RegistryError("VALIDATOR_POLICY_MISMATCH", "running validator differs from tagged policy file")
 
 
-def audit_main_snapshot(
+def _audit_verified_registry_state(
     api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
-    *, expected_policy_commit: str | None = None,
-    mint_scan_snapshot: bool = False,
-) -> dict[str, Any] | VerifiedRegistrySnapshot:
-    """Read a coherent verified snapshot; scan authority needs external immutable policy pin."""
-    if not expected_policy_commit or not SHA40_RE.fullmatch(expected_policy_commit):
-        raise RegistryError("POLICY_PIN_REQUIRED", "caller must supply immutable policy commit pinned outside YAML")
-    actual_policy_commit = resolve_release_commit(api, genesis)
-    if actual_policy_commit != expected_policy_commit:
-        raise RegistryError("POLICY_PIN_MISMATCH", "tag target is not the caller-pinned governance commit")
-    verify_policy_sources_from_immutable_commit(api, genesis, schema, actual_policy_commit)
+    expected_policy_commit: str,
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Rebuild an exact, live, verified index. Never return a reusable scan token."""
+    if not SHA40_RE.fullmatch(expected_policy_commit):
+        raise RegistryError("POLICY_PIN_REQUIRED", "exact external policy commit pin is required")
+    policy_commit = resolve_release_commit(api, genesis)
+    if policy_commit != expected_policy_commit:
+        raise RegistryError("POLICY_PIN_MISMATCH", "tag target differs from trusted external pin")
+    verify_policy_sources_from_immutable_commit(api, genesis, schema, policy_commit)
 
     observed: list[dict[str, str]] = []
     for attempt in (1, 2):
@@ -876,20 +855,27 @@ def audit_main_snapshot(
         end = _registry_branch_head(api, genesis)
         observed.append({"start": start, "end": end})
         if start == end:
-            if mint_scan_snapshot:
-                return VerifiedRegistrySnapshot(
-                    index, raw, start, actual_policy_commit, _VERIFIED_SNAPSHOT_SEAL
-                )
-            return {
-                **result, "phase": "MAIN_SNAPSHOT", "policy_commit": actual_policy_commit,
+            report = {
+                **result, "phase": "MAIN_SNAPSHOT", "policy_commit": policy_commit,
                 "index_sha256": _sha256(raw), "registry": build_report(index),
                 "attempts": attempt, "head_observations": observed,
             }
+            return report, index, start
     raise RegistryError(
-        "REGISTRY_HEAD_DRIFT",
-        "registry main changed during both bounded snapshot attempts",
+        "REGISTRY_HEAD_DRIFT", "registry main drifted during both bounded attempts",
         head_observations=observed,
     )
+
+
+def audit_main_snapshot(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    *, expected_policy_commit: str | None = None,
+) -> dict[str, Any]:
+    """Return an R0 evidence report, NEVER a reusable capability to scan projects."""
+    report, _, _ = _audit_verified_registry_state(
+        api, genesis, schema, expected_policy_commit or "",
+    )
+    return report
 
 
 def _commit_tree(api: Api, repository: str, ref: str) -> tuple[str, str]:
@@ -923,17 +909,10 @@ def verify_git_mode(api: Api, repository: str, tree_sha: str, path: str) -> dict
     raise RegistryError("PROJECT_PATH_MISSING", f"cannot resolve {path}")
 
 
-def verify_project_sources(
-    api: Api, project_id: str, snapshot: VerifiedRegistrySnapshot | Any,
+def _scan_project_entry(
+    api: Api, project_id: str, entry: Mapping[str, Any],
 ) -> dict[str, Any]:
-    # Reject raw projects.yaml entries, even when they self-assert "verified".
-    # The snapshot is minted exclusively after tagged-policy pin, GitHub
-    # first-parent proof, registration approvals and main HEAD stability.
-    if not isinstance(snapshot, VerifiedRegistrySnapshot) or snapshot._seal is not _VERIFIED_SNAPSHOT_SEAL:
-        return {"project_id": project_id, "read": "BLOCKED", "reason": "REGISTRY_CHAIN_UNVERIFIED"}
-    entry = snapshot.project_entry(project_id)
-    if entry is None:
-        return {"project_id": project_id, "read": "BLOCKED", "reason": "PROJECT_NOT_IN_VERIFIED_REGISTRY"}
+    """Private implementation; caller owns a just-verified index in one transaction."""
     if entry["lifecycle"] != "active":
         return {"project_id": project_id, "read": "NOT_ATTEMPTED", "reason": "LIFECYCLE_NOT_ACTIVE"}
     if entry["registration"] != "verified":
@@ -967,6 +946,50 @@ def verify_project_sources(
         "verified_files": successes,
         "declared_next": "UNKNOWN_NOT_PARSED_BY_REGISTRY",
         "inferred_governance_recommendation": "READ_PROJECT_AUTHORITY_BEFORE_ANY_ACTION",
+    }
+
+
+def scan_authorized_main(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    *, expected_policy_commit: str, authorized_project_ids: Sequence[str],
+) -> dict[str, Any]:
+    """One complete audit→R0 scan transaction. No caller-supplied YAML or scan token.
+
+    This is an application-level fail-closed boundary, not OS sandboxing:
+    a Python process with the user's GitHub credentials can always issue its
+    own API calls outside this library. The caller must independently hold R0
+    authorization for every requested project; indexing grants no new rights.
+    """
+    if isinstance(authorized_project_ids, (str, bytes)) or not isinstance(authorized_project_ids, Sequence):
+        raise RegistryError("SCAN_SCOPE_INVALID", "explicit authorized project IDs are required")
+    project_ids = tuple(authorized_project_ids)
+    if len(set(project_ids)) != len(project_ids) or not all(isinstance(p, str) for p in project_ids):
+        raise RegistryError("SCAN_SCOPE_INVALID", "scan scope has duplicate or invalid project IDs")
+    result, index, pinned_head = _audit_verified_registry_state(
+        api, genesis, schema, expected_policy_commit,
+    )
+    projects = index["projects"]
+    unknown = sorted(set(project_ids) - set(projects))
+    if unknown:
+        raise RegistryError("PROJECT_NOT_IN_VERIFIED_REGISTRY", "unregistered project cannot be scanned", ids=unknown)
+    reads: list[dict[str, Any]] = []
+    for project_id in project_ids:
+        # Checking before AND after each item makes a snapshot unusable after
+        # retirement, pause or any subsequent registry ref update.
+        if _registry_branch_head(api, genesis) != pinned_head:
+            raise RegistryError("REGISTRY_HEAD_DRIFT", "registry changed before project read; no results released")
+        reads.append(_scan_project_entry(api, project_id, projects[project_id]))
+        if _registry_branch_head(api, genesis) != pinned_head:
+            raise RegistryError("REGISTRY_HEAD_DRIFT", "registry changed during project read; no results released")
+    if _registry_branch_head(api, genesis) != pinned_head:
+        raise RegistryError("REGISTRY_HEAD_DRIFT", "registry changed before scan result was returned")
+    return {
+        **result,
+        "phase": "AUDITED_PROJECT_READ",
+        "project_reads": reads,
+        "registry": build_report(index, reads),
+        "dispatch_authorized": False,
+        "writer_change_authorized": False,
     }
 
 

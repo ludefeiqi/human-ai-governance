@@ -106,10 +106,11 @@ def active_genesis() -> dict[str, Any]:
 
 def mock_released_policy_routes(routes: dict, repository: str, release: str, genesis: dict) -> None:
     """Synthetic tagged policy blobs; all expected hashes use actual test checkout bytes."""
+    from registry.validate_registry import RELEASE_POLICY_FILESET
     source = {
-        "registry/GENESIS.json": json.dumps(genesis).encode("utf-8"),
-        "registry/projects.schema.json": Path("registry/projects.schema.json").read_bytes(),
-        "registry/validate_registry.py": Path("registry/validate_registry.py").read_bytes(),
+        path: (json.dumps(genesis).encode("utf-8") if path == "registry/GENESIS.json"
+               else Path(path).read_bytes())
+        for path in sorted(RELEASE_POLICY_FILESET)
     }
     for path, payload in source.items():
         routes[(f"repos/{repository}/contents/{path}", (("ref", release),))] = content(payload)

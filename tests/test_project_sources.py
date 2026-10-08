@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from registry.validate_registry import RegistryError, VerifiedRegistrySnapshot, audit_main_snapshot, build_report, load_schema, verify_git_mode, verify_project_sources
+from registry.validate_registry import RegistryError, build_report, load_schema, scan_authorized_main, verify_git_mode
 from tests.helpers import SHA_B, SHA_C, TREE_A, TREE_B, FakeApi, active_genesis, content, dump, index, mock_released_policy_routes, project
 
 
 REPO = "owner/repo"
 
 
-def audited_project_snapshot(entry):
-    """Independent synthetic GitHub audit, not a forged YAML 'verified' flag."""
+def audited_source_api(entry, project_routes=None):
+    """Synthetic complete GitHub policy/registry evidence for one R0 transaction."""
     registry = index({"alpha": entry})
     raw = dump(registry)
     genesis = active_genesis()
@@ -27,15 +27,20 @@ def audited_project_snapshot(entry):
         f"repos/{governance}/git/ref/tags/v0.2.0": {"object": {"type": "tag", "sha": "d" * 40}},
         f"repos/{governance}/git/tags/{'d' * 40}": {"object": {"type": "commit", "sha": release}},
         f"repos/{governance}/git/ref/heads/main": {"object": {"sha": release}},
-        (f"repos/{governance}/contents/registry/GENESIS.json", (("ref", release),)):
-            content(json.dumps(genesis).encode("utf-8")),
         (f"repos/{governance}/contents/projects.yaml", (("ref", release),)): content(raw),
     }
     mock_released_policy_routes(routes, governance, release, genesis)
-    return audit_main_snapshot(
-        FakeApi(routes), genesis, load_schema(Path("registry/projects.schema.json")),
-        expected_policy_commit=release, mint_scan_snapshot=True,
+    routes.update(project_routes or {})
+    return FakeApi(routes), genesis, release
+
+
+def run_project(entry, project_routes):
+    api, genesis, release = audited_source_api(entry, project_routes)
+    audited = scan_authorized_main(
+        api, genesis, load_schema(Path("registry/projects.schema.json")),
+        expected_policy_commit=release, authorized_project_ids=("alpha",),
     )
+    return audited["project_reads"][0], api
 
 
 def source_routes(ledger_mode: str = "100644", rules_mode: str = "100644", baseline_mode: str = "100644"):
@@ -95,7 +100,7 @@ def test_symlink_parent_is_rejected():
 
 
 def test_verified_active_project_checks_head_and_fixed_contract():
-    result = verify_project_sources(FakeApi(source_routes()), "alpha", audited_project_snapshot(project()))
+    result, _ = run_project(project(), source_routes())
     assert result["read"] == "VERIFIED"
     assert result["project_head"] == SHA_B
     assert len(result["verified_files"]) == 3
@@ -106,10 +111,9 @@ def test_verified_active_project_checks_head_and_fixed_contract():
 def test_unverified_registration_is_not_deep_scanned():
     entry = project()
     entry["registration"] = "unverified"
-    api = FakeApi({})
-    result = verify_project_sources(api, "alpha", audited_project_snapshot(entry))
+    result, api = run_project(entry, {})
     assert result == {"project_id": "alpha", "read": "BLOCKED", "reason": "REGISTRATION_UNVERIFIED"}
-    assert api.calls == []
+    assert not [endpoint for endpoint, _ in api.calls if endpoint.startswith("repos/owner/repo/")]
 
 
 @pytest.mark.parametrize("state", ["paused", "retired"])
@@ -120,20 +124,19 @@ def test_inactive_project_is_not_scanned(state):
         "lifecycle": state, "changed_at": "2026-10-08T00:00:00Z",
         "previous_index_commit": "a" * 40,
     }]
-    api = FakeApi({})
-    result = verify_project_sources(api, "alpha", audited_project_snapshot(entry))
+    result, api = run_project(entry, {})
     assert result["read"] == "NOT_ATTEMPTED"
-    assert api.calls == []
+    assert not [endpoint for endpoint, _ in api.calls if endpoint.startswith("repos/owner/repo/")]
 
 
 def test_unsafe_ledger_mode_blocks_before_other_files():
-    result = verify_project_sources(FakeApi(source_routes(ledger_mode="120000")), "alpha", audited_project_snapshot(project()))
+    result, _ = run_project(project(), source_routes(ledger_mode="120000"))
     assert result["read"] == "BLOCKED"
     assert result["reason"] == "PROJECT_PATH_UNSAFE_MODE"
 
 
 def test_unsafe_fixed_contract_mode_blocks_project():
-    result = verify_project_sources(FakeApi(source_routes(baseline_mode="120000")), "alpha", audited_project_snapshot(project()))
+    result, _ = run_project(project(), source_routes(baseline_mode="120000"))
     assert result["read"] == "BLOCKED"
     assert len(result["verified_files"]) == 2
 
@@ -143,7 +146,7 @@ def test_missing_fixed_contract_after_partial_read_is_partial():
     routes[f"repos/{REPO}/git/trees/{TREE_B}"]["tree"] = [
         entry for entry in routes[f"repos/{REPO}/git/trees/{TREE_B}"]["tree"] if entry["path"] != "BASELINE.md"
     ]
-    result = verify_project_sources(FakeApi(routes), "alpha", audited_project_snapshot(project()))
+    result, _ = run_project(project(), routes)
     assert result["read"] == "PARTIAL"
     assert result["reason"] == "PROJECT_PATH_MISSING"
 
@@ -151,7 +154,7 @@ def test_missing_fixed_contract_after_partial_read_is_partial():
 def test_truncated_tree_blocks_source_verification():
     routes = source_routes()
     routes[f"repos/{REPO}/git/trees/{TREE_A}"]["truncated"] = True
-    result = verify_project_sources(FakeApi(routes), "alpha", audited_project_snapshot(project()))
+    result, _ = run_project(project(), routes)
     assert result["read"] == "BLOCKED"
     assert result["reason"] == "PROJECT_TREE_TRUNCATED"
 
@@ -201,38 +204,103 @@ def test_duplicate_read_result_is_rejected():
         )
     assert caught.value.code == "READ_PROJECT_DUPLICATE"
 
-def test_raw_yaml_verified_flag_cannot_enable_private_repository_scan():
+def test_raw_yaml_verified_flag_is_not_a_scan_api_argument():
+    import registry.validate_registry as module
+    assert not hasattr(module, "verify_project_sources")
+    assert not hasattr(module, "VerifiedRegistrySnapshot")
+    assert not hasattr(module, "_VERIFIED_SNAPSHOT_SEAL")
+
+
+def test_no_external_commit_pin_prevents_any_private_repository_scan():
     api = FakeApi({})
-    result = verify_project_sources(api, "alpha", project())
-    assert result == {"project_id": "alpha", "read": "BLOCKED", "reason": "REGISTRY_CHAIN_UNVERIFIED"}
-    assert api.calls == []
-
-
-def test_fake_plain_dict_receipt_does_not_mint_scan_authority():
-    api = FakeApi({})
-    raw = {"status": "VERIFIED", "project_id": "alpha", "registration": "verified"}
-    result = verify_project_sources(api, "alpha", raw)
-    assert result["reason"] == "REGISTRY_CHAIN_UNVERIFIED"
-    assert api.calls == []
-
-
-def test_snapshot_cannot_be_constructed_with_fake_seal():
     with pytest.raises(RegistryError) as caught:
-        VerifiedRegistrySnapshot(index(), dump(index()), "e" * 40, "e" * 40, object())
-    assert caught.value.code == "REGISTRY_CHAIN_UNVERIFIED"
-
-
-def test_verified_snapshot_does_not_allow_unknown_repo_scan():
-    api = FakeApi({})
-    snapshot = audited_project_snapshot(project())
-    result = verify_project_sources(api, "unregistered-private-repo", snapshot)
-    assert result["reason"] == "PROJECT_NOT_IN_VERIFIED_REGISTRY"
+        scan_authorized_main(
+            api, active_genesis(), load_schema(Path("registry/projects.schema.json")),
+            expected_policy_commit="", authorized_project_ids=("alpha",),
+        )
+    assert caught.value.code == "POLICY_PIN_REQUIRED"
     assert api.calls == []
 
 
-def test_snapshot_entry_is_copy_not_mutable_shared_state():
-    snapshot = audited_project_snapshot(project())
-    item = snapshot.project_entry("alpha")
-    item["repository"] = "attacker/private-repo"
-    item["registration"] = "verified"
-    assert snapshot.project_entry("alpha")["repository"] == "owner/repo"
+def test_unknown_project_id_does_not_trigger_private_repository_scan():
+    api, genesis, release = audited_source_api(project(), {})
+    with pytest.raises(RegistryError) as caught:
+        scan_authorized_main(
+            api, genesis, load_schema(Path("registry/projects.schema.json")),
+            expected_policy_commit=release, authorized_project_ids=("attacker-secret",),
+        )
+    assert caught.value.code == "PROJECT_NOT_IN_VERIFIED_REGISTRY"
+    assert not [endpoint for endpoint, _ in api.calls if endpoint.startswith("repos/owner/repo/")]
+
+
+def test_duplicate_or_malformed_scan_scope_is_rejected():
+    for scope in ("alpha", ("alpha", "alpha"), ("alpha", 0)):
+        api, genesis, release = audited_source_api(project(), {})
+        with pytest.raises(RegistryError) as caught:
+            scan_authorized_main(
+                api, genesis, load_schema(Path("registry/projects.schema.json")),
+                expected_policy_commit=release, authorized_project_ids=scope,
+            )
+        assert caught.value.code == "SCAN_SCOPE_INVALID"
+
+
+class SequencedRegistryHeads(FakeApi):
+    def __init__(self, routes, heads):
+        super().__init__(routes)
+        self.heads = iter(heads)
+
+    def get(self, endpoint, fields=None):
+        if endpoint == "repos/owner/governance/git/ref/heads/main":
+            self.calls.append((endpoint, ()))
+            return {"object": {"sha": next(self.heads)}}
+        return super().get(endpoint, fields)
+
+
+def test_registry_paused_after_audit_blocks_before_scanning():
+    api, genesis, release = audited_source_api(project(), source_routes())
+    api = SequencedRegistryHeads(api.routes, [release, release, "f" * 40])
+    with pytest.raises(RegistryError) as caught:
+        scan_authorized_main(
+            api, genesis, load_schema(Path("registry/projects.schema.json")),
+            expected_policy_commit=release, authorized_project_ids=("alpha",),
+        )
+    assert caught.value.code == "REGISTRY_HEAD_DRIFT"
+    assert not [endpoint for endpoint, _ in api.calls if endpoint.startswith("repos/owner/repo/")]
+
+
+def test_registry_retired_during_project_read_rejects_entire_transaction():
+    api, genesis, release = audited_source_api(project(), source_routes())
+    api = SequencedRegistryHeads(api.routes, [release, release, release, "f" * 40])
+    with pytest.raises(RegistryError) as caught:
+        scan_authorized_main(
+            api, genesis, load_schema(Path("registry/projects.schema.json")),
+            expected_policy_commit=release, authorized_project_ids=("alpha",),
+        )
+    assert caught.value.code == "REGISTRY_HEAD_DRIFT"
+
+
+def test_every_scan_reaudits_policy_and_main_not_a_reusable_snapshot():
+    api, genesis, release = audited_source_api(project(), source_routes())
+    schema = load_schema(Path("registry/projects.schema.json"))
+    first = scan_authorized_main(
+        api, genesis, schema, expected_policy_commit=release, authorized_project_ids=("alpha",),
+    )
+    assert first["project_reads"][0]["read"] == "VERIFIED"
+    initial_calls = len(api.calls)
+    api.routes["repos/owner/governance/git/ref/heads/main"] = {"object": {"sha": "f" * 40}}
+    with pytest.raises(AssertionError):  # synthetic API lacks an ancestry proof for changed HEAD
+        scan_authorized_main(
+            api, genesis, schema, expected_policy_commit=release, authorized_project_ids=("alpha",),
+        )
+    assert len(api.calls) > initial_calls
+
+
+def test_scanner_does_not_claim_business_authorization():
+    api, genesis, release = audited_source_api(project(), source_routes())
+    result = scan_authorized_main(
+        api, genesis, load_schema(Path("registry/projects.schema.json")),
+        expected_policy_commit=release, authorized_project_ids=("alpha",),
+    )
+    assert result["dispatch_authorized"] is False
+    assert result["writer_change_authorized"] is False
+    assert result["registry"]["dispatch_authorized"] is False

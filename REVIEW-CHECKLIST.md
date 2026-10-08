@@ -95,3 +95,12 @@ project_adoptions: []
 - 当前若只有 owner 协作者，必须出 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`；AI 会话与 CI 不可冒充不同 GitHub 审查身份。若改用另一审查保证等级，需独立批准而非自动降级。
 - 测试 raw YAML、假 `verified` 字典、未登记项目均无法取得项目扫描能力；缺少外部 policy pin、运行 validator/Schema/GENESIS 与正式 Tag 不匹配时拒绝。
 - 初始 GENESIS 用 `validate-local`，未来动态变更候选用无权力效果的 `validate-candidate`；后者 `registry_trusted:false`、`approval_verified:false`，仍需独立 Review 与所有审批链核验。
+
+
+## P2 封板的定点复审（候选）
+
+1. 受支持的调用面不再提供 `VerifiedRegistrySnapshot`、可导入 seal 或接受任意 YAML entry 的公开扫描函数；审计与受权 R0 读取在一次 `scan_authorized_main` 操作中完成，逐项目读取前后及返回前重核 HEAD，跨窗口重新审计。不宣称对任意持凭据 Python 进程提供 OS 防护。
+2. 只认可原 `projects.yaml` 的 GitHub `status=modified`，拒绝 `renamed`、`added`、`copied`、`previous_filename` 和其它路径。
+3. 远端正式政策必须按固定 19 项文件清单逐项 GET+SHA256 核验，不接受缺项、额外项或非关键文件篡改；不得只验证 validator/schema/GENESIS。
+4. 负例覆盖伪造 seal、过期/暂停索引、重命名、远端 manifest 不完整及非关键文件字节篡改；CI 不代表独立 Review 或用户批准。
+5. 审查等级 A 仍要求真实第二 GitHub actor；B 是另需准确政策批准并实现机器回执验证的低保证等级，仅限发现元数据，绝不能被默认为生效。

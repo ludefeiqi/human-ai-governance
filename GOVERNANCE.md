@@ -92,3 +92,6 @@ v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immuta
 读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以本候选的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。
 
 **P2.1 额外判据（候选）：** owner 批准评论不得预填未知 GitHub `created_at`；必须先有真实独立 GitHub actor 对准确 HEAD 的 `APPROVED` Review，再有未编辑的 owner 绑定评论，严格核对 `submitted_at < created_at < merged_at`。动态索引仅能经外部政策 Commit pin、固定 validator/Schema/GENESIS 与完整 first-parent 链核实后生成临时可信快照；原始 YAML `verified` 字样无读取授权。CI `validate-candidate` 只能做格式预检，不赋予登记/派工权限。仓库只有 owner、无独立 GitHub reviewer 时维持 HOLD，不伪造第二账号身份。
+
+
+**P2 封板补充（尚未正式发布）：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 19 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查只是明确更低保证等级的待批准政策，不会自动替换现行真实 GitHub Reviewer 门禁。

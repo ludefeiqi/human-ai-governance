@@ -87,7 +87,7 @@ PRE_MERGE 必须核实独立 Review 的服务器 `submitted_at` 早于 owner com
 
 ## 6. 漂移、冷恢复与停止
 
-冷恢复顺序：从插件取得**独立于 YAML 的精确政策 Commit pin** → Tag 解引用匹配 pin → 从固定 Commit 核运行的 validator、Schema、GENESIS 原始 SHA256 → pin main H1 → read strict index at H1 → verify first-parent/approvals → 生成临时 `VerifiedRegistrySnapshot` → 仅核该快照内 verified active 项目文件 → re-read main H2。未经审计的 YAML dict 即使写着 `registration: verified` 也只能 `REGISTRY_CHAIN_UNVERIFIED/BLOCKED`。若 H1≠H2，只允许从头重做一次独立快照；再次漂移则 `REGISTRY_HEAD_DRIFT/HOLD`，绝不拼接两次结果。
+冷恢复顺序：从插件取得**独立于 YAML 的精确政策 Commit pin** → Tag 解引用匹配 pin → 从固定 Commit 读取、核验**全部 19 项固定政策文件**的原始 SHA256，比较正在运行的 validator/Schema/GENESIS → pin main H1 → 严格读取 H1 的索引并验证 first-parent/每次审批 → 仅在同一次 `scan_authorized_main(...)` 操作中读取调用方另有 R0 授权的项目 ID → 每个项目读取前后复核 `main` HEAD → 返回结果前再复核。不得返回可重用的扫描令牌或快照。YAML 即使写着 `registration: verified` 也不是扫描能力；漂移即 `REGISTRY_HEAD_DRIFT/HOLD`，不返回本轮部分结果。不同窗口必须重新审计。
 
 若 v0.2.0 Tag 未发布或无法解引用、Manifest/GENESIS/index 不匹配、GitHub GET 失败、项目 403/404、Git mode 不安全或审批不足，只报告准确缺口。不得自动采用项目、派工、恢复 thread、变更 writer、改保护设置或创建第二账本/服务。
 
@@ -104,3 +104,18 @@ git diff --check
 ```
 
 `validate-local` 仅校验首次政策发布时的原始 GENESIS，不可作为未来每次动态索引变更的 CI 门禁。`validate-candidate` 只做 Schema 和固定文件预检，必须输出 `registry_trusted:false`、`approval_verified:false`，不可深扫。`reviewer-readiness` 仅读 GitHub 实际协作者；只有一个 owner 时 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`，不能用另一个 AI 会话冒充不同 GitHub 审查账号，CI 替代审查属于另需批准的策略。正式 `audit-main` 必须提供插件单独锁定的 `--expected-policy-commit`。`pre-merge`、`post-merge`、`audit-main` 需要正式 Tag 和认证 GitHub GET；未发布期间必须 HOLD。
+
+
+## 8. 单人多 AI 的分级审查候选（**待准确政策裁定，尚未生效**）
+
+### A：EXTERNAL_GITHUB_REVIEW（现行可执行门禁）
+
+由不同于仓库 owner/PR author 的真实 GitHub 账号对同一准确 HEAD 提交 `APPROVED` Review；服务端 Review 时间须早于 owner 对相同对象的批准，批准又必须早于 merge。当前私有仓库仅有 `ludefeiqi` 协作者，且 `main.protected=false`，分支保护和 rulesets API 返回套餐限制。**没有真实第二账号时 A 必须 HOLD**；其它 AI 窗口或 CI 不能冒充 GitHub Review。
+
+### B：SINGLE_OWNER_AI_R0_ATTESTED（较低保证等级的拟议方案）
+
+仅考虑发现元数据的登记变更，且持续 `reference_only`、`dispatch_enabled:false`、`writer_source:current_project_ledger_only`。不得增加项目实际读取权限、采用、业务派工、INTENT、writer、生产、身份权限或 R3 操作。
+
+拟议必要证据为：独立 AI R0 审查绑定准确 PR HEAD、base、索引原始 SHA256、规范化差分摘要、changed IDs、审查结论与风险，保存可再读回的报告引用/摘要；同 HEAD 的 GitHub CI 明确 success；人类 owner 以可核验评论明确批准准确版本、用途范围与报告/CI 引用，服务器时间晚于审查和 CI 且早于 merge；合并后严格检查 parent、原始索引字节和连续历史。没有证明独立 AI 的不同 GitHub 账号身份，保证等级**严格低于 A**。单账号也没有平台分支保护，须保留读取端 fail-closed，不得伪称平台阻止恶意直接 push。
+
+**执行边界：** B 目前只是候选政策。当前验证器依然执行 A 的不同 GitHub Reviewer 要求；只有用户另行对准确政策变更正式批准、独立复核，并将 B 的证据验证实现和测试加入受控版本，才可能启用。此处不得自动降级、也不得将 AI 评审回执当成 GitHub APPROVED Review。

@@ -81,4 +81,7 @@ registration unverified 项目不深扫私库；403/404/symlink/来源缺失只�
 
 两个窗口即使得到相同索引也仍是 R0 observers。发现、`thread/list/read` 或 includeTurns=false 不产生 writer；`thread/resume` 会恢复执行上下文，不是本流程的只读查询。索引不得自动 adopted、dispatch 或 writer handoff；任何接管仍须项目自身权威流程与用户准确授权。
 
-**P2.1 冷恢复补充（候选）：** 外部插件需提供准确 policy Commit pin；新窗口必须从该不可变 Commit 校验运行的 validator、Schema 与 GENESIS，完成审批链与 HEAD 稳定核验后才获得临时 `VerifiedRegistrySnapshot`。直接传入带 `registration: verified` 的 YAML dict 应被阻断。未来动态索引变更的绿色 CI 仅证明 Schema precheck，不等于审批。缺不同 GitHub reviewer 标记 `REVIEWER_UNAVAILABLE/HOLD`。
+**P2.1 冷恢复补充（候选）：** 外部插件需提供准确 policy Commit pin；新窗口必须从该不可变 Commit 校验运行的 validator、Schema 与 GENESIS，完成全部固定政策与完整审批链核验后，在同一次 `scan_authorized_main` 操作中针对有现行 R0 授权的项目 ID 完成读取；逐项读前读后和返回前都重核 `main` HEAD，不缓存或跨窗口重用任何扫描快照。带 `registration: verified` 的 YAML dict 没有受支持的扫描入口。未来动态索引变更的绿色 CI 仅证明 Schema precheck，不等于审批。缺不同 GitHub reviewer 标记 `REVIEWER_UNAVAILABLE/HOLD`。
+
+
+**P2 审查等级候选：** 当前 A 要求真实不同 GitHub 账号的 `APPROVED`；单 owner 时必须 HOLD。较低的 B（独立 AI R0 证据 + 同 HEAD CI + owner 准确批准 + 连续链验证）仅是另需用户对准确政策批准的方案；未更新机器验证程序及正式发布前，不可按 B 放行。

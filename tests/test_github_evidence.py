@@ -132,6 +132,10 @@ def test_unpublished_genesis_holds_before_any_pr_read(schema):
         (lambda r, g: r[PR_ENDPOINT]["base"].update({"sha": "bad"}), "PR_BASE_INVALID"),
         (lambda r, g: r[FILES_ENDPOINT].append({"filename": "README.md", "status": "modified"}), "PR_FILES_FORBIDDEN"),
         (lambda r, g: r[FILES_ENDPOINT][0].update({"status": "removed"}), "PR_FILES_FORBIDDEN"),
+        (lambda r, g: r[FILES_ENDPOINT][0].update({"status": "renamed", "previous_filename": "UNTRUSTED.md"}), "PR_FILES_FORBIDDEN"),
+        (lambda r, g: r[FILES_ENDPOINT][0].update({"previous_filename": "README.md"}), "PR_FILES_FORBIDDEN"),
+        (lambda r, g: r[FILES_ENDPOINT][0].update({"status": "added"}), "PR_FILES_FORBIDDEN"),
+        (lambda r, g: r[FILES_ENDPOINT][0].update({"status": "copied"}), "PR_FILES_FORBIDDEN"),
         (lambda r, g: r.update({REVIEWS_ENDPOINT: []}), "INDEPENDENT_APPROVAL_MISSING"),
         (lambda r, g: r[REVIEWS_ENDPOINT][0].update({"commit_id": SHA_A}), "INDEPENDENT_APPROVAL_MISSING"),
         (lambda r, g: r[REVIEWS_ENDPOINT][0]["user"].update({"login": "author"}), "INDEPENDENT_APPROVAL_MISSING"),
@@ -404,15 +408,17 @@ def test_main_snapshot_rejects_genesis_not_present_at_immutable_release_commit(s
     assert caught.value.code == "RELEASE_FILE_HASH_MISMATCH"
 
 
-def test_snapshot_minted_only_after_pinned_policy_and_stable_head(schema):
+def test_audit_main_returns_evidence_not_reusable_scan_capability(schema):
     genesis, routes, release = snapshot_fixture(schema)
     result = audit_main_snapshot(
         SequencedHeadApi(routes, [release, release]), genesis, schema,
-        expected_policy_commit=release, mint_scan_snapshot=True,
+        expected_policy_commit=release,
     )
-    assert result.index_head == release
-    assert result.policy_commit == release
-    assert result.project_entry("alpha")["repository"] == "owner/repo"
+    assert isinstance(result, dict)
+    assert result["head"] == release
+    assert result["policy_commit"] == release
+    assert result["registry"]["projects"][0]["project_id"] == "alpha"
+    assert not hasattr(result, "project_entry")
 
 
 def test_reviewer_readiness_holds_for_single_owner_account():
@@ -447,7 +453,7 @@ def test_remote_policy_manifest_validator_sha_mismatch_holds(schema):
     with pytest.raises(RegistryError) as caught:
         audit_main_snapshot(
             SequencedHeadApi(routes, []), genesis, schema,
-            expected_policy_commit=release, mint_scan_snapshot=True
+            expected_policy_commit=release
         )
     assert caught.value.code == "RELEASE_FILE_HASH_MISMATCH"
 
@@ -466,3 +472,69 @@ def test_remote_policy_genesis_different_but_matching_manifest_still_holds(schem
     with pytest.raises(RegistryError) as caught:
         audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
     assert caught.value.code == "GENESIS_POLICY_MISMATCH"
+
+
+def _manifest_bytes(routes, release):
+    import base64
+    key = (f"repos/{REPO}/contents/MANIFEST.sha256", (("ref", release),))
+    return base64.b64decode(routes[key]["content"])
+
+
+def test_remote_manifest_all_nineteen_paths_are_fetched(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    api = SequencedHeadApi(routes, [release, release])
+    audit_main_snapshot(api, genesis, schema, expected_policy_commit=release)
+    refs = [
+        endpoint for endpoint, fields in api.calls
+        if endpoint.startswith(f"repos/{REPO}/contents/") and fields == (("ref", release),)
+    ]
+    fixed = [x for x in refs if not x.endswith("/projects.yaml")]
+    assert len(set(fixed)) == 20  # 19 policy files plus manifest itself
+    assert f"repos/{REPO}/contents/README.md" in fixed
+    assert f"repos/{REPO}/contents/tests/test_strict_reader.py" in fixed
+
+
+@pytest.mark.parametrize("deleted_path", ["README.md", "tests/test_strict_reader.py", "AGENTS.md"])
+def test_remote_release_manifest_incomplete_is_rejected(schema, deleted_path):
+    genesis, routes, release = snapshot_fixture(schema)
+    key = (f"repos/{REPO}/contents/MANIFEST.sha256", (("ref", release),))
+    lines = _manifest_bytes(routes, release).decode().splitlines()
+    without = "\n".join(line for line in lines if not line.endswith("  " + deleted_path)) + "\n"
+    routes[key] = content(without.encode())
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_MANIFEST_FILESET_MISMATCH"
+
+
+def test_remote_release_manifest_extra_file_is_rejected(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    key = (f"repos/{REPO}/contents/MANIFEST.sha256", (("ref", release),))
+    malicious = _manifest_bytes(routes, release) + (("0" * 64) + "  unreviewed.py\n").encode()
+    routes[key] = content(malicious)
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_MANIFEST_FILESET_MISMATCH"
+
+
+@pytest.mark.parametrize("path", ["README.md", "tests/test_strict_reader.py", "AGENTS.md"])
+def test_remote_noncritical_policy_file_hash_mismatch_is_rejected(schema, path):
+    genesis, routes, release = snapshot_fixture(schema)
+    key = (f"repos/{REPO}/contents/{path}", (("ref", release),))
+    routes[key] = content(b"REPLACED_WITH_UNREVIEWED_BYTES")
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_FILE_HASH_MISMATCH"
+
+
+def test_remote_release_manifest_with_only_three_key_files_is_rejected(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    key = (f"repos/{REPO}/contents/MANIFEST.sha256", (("ref", release),))
+    allowed = {"registry/GENESIS.json", "registry/validate_registry.py", "registry/projects.schema.json"}
+    incomplete = "\n".join(
+        line for line in _manifest_bytes(routes, release).decode().splitlines()
+        if line.split("  ", 1)[-1] in allowed
+    ) + "\n"
+    routes[key] = content(incomplete.encode())
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_MANIFEST_FILESET_MISMATCH"
