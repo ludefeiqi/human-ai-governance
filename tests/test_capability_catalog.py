@@ -204,3 +204,47 @@ def test_preserved_source_lock_must_reconcile_with_cards(tmp_path: Path):
     path = root / SOURCE_LOCK
     path.write_text(path.read_text().replace("7aced01a8c12e1bba5e810ce91ab425f4615d4a7", "0" * 40), encoding="utf-8")
     assert_code(root, "SOURCE_LOCK_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda card: card["activation"].update({"enabled": True}),
+        lambda card: card["activation"].update({"enabled": 0}),
+        lambda card: card["activation"].update({"invocation": "ALLOWED"}),
+        lambda card: card["risk"].update({"read_only": 1}),
+        lambda card: card["risk"].update({"side_effects": "ALLOWED"}),
+        lambda card: card["policy_lock"].update({"released_policy_version": "v0.2.1"}),
+        lambda card: card["policy_lock"].update({"candidate_policy_version": "v9.9.9"}),
+        lambda card: card.update({"status": "ACTIVE"}),
+        lambda card: card.update({"schema_version": "42"}),
+        lambda card: card.update({"unknown": "disguised authorization"}),
+        lambda card: card["contract"].update({"grant": "write"}),
+        lambda card: card["activation"].update({"unknown": "executor"}),
+        lambda card: card.update({"dependencies": [42]}),
+    ],
+)
+def test_schema_cannot_relax_static_authority(tmp_path: Path, change):
+    root = candidate_root(tmp_path)
+    schema = root / "registry/capabilities/capability-card.schema.json"
+    schema.write_text('{"type": "object"}\n', encoding="utf-8")
+    mutate_card(root, "tool.route", change)
+    assert_code(root, "CAPABILITY_SCHEMA_INVALID")
+
+
+def test_registry_parent_symlink_even_within_root_is_rejected(tmp_path: Path):
+    root = candidate_root(tmp_path)
+    original = root / "registry"
+    shadow = root / "shadow_registry"
+    original.rename(shadow)
+    original.symlink_to(shadow, target_is_directory=True)
+    assert_code(root, "PATH_INVALID")
+
+
+def test_source_lock_parent_symlink_even_within_root_is_rejected(tmp_path: Path):
+    root = candidate_root(tmp_path)
+    original = root / "clients/chatgpt-plugin"
+    shadow = root / "clients/plugin-shadow"
+    original.rename(shadow)
+    original.symlink_to(shadow, target_is_directory=True)
+    assert_code(root, "PATH_INVALID")

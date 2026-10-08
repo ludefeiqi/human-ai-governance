@@ -23,7 +23,7 @@
 | --- | --- | --- | --- | --- | --- |
 | S0 基线与边界 | 锁定正式版本/候选与授权边界 | 本轮用户明确同意制定实施账本 | 本账本、GitHub PR/HEAD 与插件现况 | 当次 HEAD 与版本读回、边界实际未变 | **PASS：基线与候选已在本轮独立读回** |
 | S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **PASS_DESIGN：修订后独立只读 APPROVE_DESIGN** |
-| S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **REQUEST_CHANGES / HOLD** |
+| S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **NOT_STARTED** |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **NOT_STARTED** |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：仅修复 S2 安全复核阻断：静态不可放宽约束、目录父级 symlink 与 Git mode 远端核验；补对应负例再独立复核。S2 未 PASS，严禁进入 S3。
+当前 **唯一 NEXT**：将 S2 修复绑定准确新 Draft HEAD 的真实 CI，并进行独立只读复审；若再被否决仅返修命中范围。未满足独立审查及准确 CI 前不得标 S2 PASS，更不能进入 S3。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -93,3 +93,13 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 精确候选：`da83ad52e3bd82041748bf063fc0b921d52dbc7a`。GitHub PR #6 仍 Draft，实际 CI `validate` completed/success，job `113443441112`；协调者本地 283 tests PASS、validate-local/validate-candidate PASS。
 - 独立 Codex gpt-5.6-sol R0 只读结论 **REQUEST_CHANGES**。阻断①：strict Schema、禁用态、无副作用和 source policy lock 不得只依赖同候选可变 Schema，必须在验证器中独立核不可放宽不变量。阻断②：路径链父目录 symlink 未充分拒绝。阻断③：固定政策远端核验未证明能力源文件的 Git mode；Manifest raw SHA 不证明文件模式。
 - 裁定：**S2 HOLD / NOT ACCEPTED**，旧 PASS 测试不得覆盖此审查；仅修上述安全范围并加对应负例，准确新 HEAD 复核后才转 PASS。S3–S7 均不可前进。
+
+
+## 8. S2 阻断修复候选（2026-10-09，待独立复审）
+
+- 前置精确远端 HEAD `1c91da6091d7b04bafa41efc86edbaa4d8839475`；此前 S2 `REQUEST_CHANGES` 保留历史，不能拿此前 283 PASS/旧 CI 抵消阻断。
+- 修复①：Python 静态守卫独立于同候选 JSON Schema 强制卡字段、版本、禁用态、R0/无副作用、policy lock、合同形状和类型；即便 JSON Schema 同时放宽，非法卡仍拒绝。
+- 修复②：能力文件、能力目录、source-lock 逐级检查内部父目录真实类型，禁止 symlink（包括指向仓库内部的 symlink）；保留叶文件普通/不可执行要求。
+- 修复③：远端固定政策完整字节哈希核对后，追加绑定准确 pinned Commit 的完整 Git Tree 只读校验；覆盖全部固定文件和 MANIFEST，要求 blob/100644，拒绝 executable、symlink、submodule、缺项、重复项、truncated/漂移树。
+- 对应负例已扩充；协调者本地 `pytest -q -p no:cacheprovider` **309 passed**；`validate-local` status VERIFIED、`validate-candidate` status SCHEMA_PRECHECK_PASS（approval_verified=false、registry_trusted=false）；Manifest 43 且全文件重算；`git diff --check` 通过。
+- 阶段裁定：**IMPLEMENTED_CANDIDATE / REVIEW_PENDING**。本节测试不构成独立复核/正式发布/业务授权。准确新 HEAD、原生 GitHub CI 和独立只读审查须另行读回记录。

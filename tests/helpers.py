@@ -123,3 +123,15 @@ def mock_released_policy_routes(routes: dict, repository: str, release: str, gen
     routes[(f"repos/{repository}/contents/MANIFEST.sha256", (("ref", release),))] = content(
         manifest.encode("ascii")
     )
+    # Immutable release Git tree is a separate source of file mode evidence.
+    tree_sha = "9" * 40
+    routes[f"repos/{repository}/commits/{release}"] = {
+        "sha": release, "commit": {"tree": {"sha": tree_sha}}, "parents": [],
+    }
+    routes[(f"repos/{repository}/git/trees/{tree_sha}", (("recursive", "1"),))] = {
+        "truncated": False,
+        "tree": [
+            {"path": path, "type": "blob", "mode": "100644", "sha": "d" * 40}
+            for path in sorted(set(source) | {"MANIFEST.sha256"})
+        ],
+    }

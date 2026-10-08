@@ -1142,6 +1142,53 @@ def _registry_branch_head(api: Api, genesis: Mapping[str, Any]) -> str:
     return head
 
 
+def verify_immutable_policy_git_modes(
+    api: Api, repository: str, expected_commit: str,
+) -> None:
+    """Verify blob modes from the pinned Git tree; SHA256 manifest alone cannot do this.
+
+    Check every fixed policy file and the manifest, including the three inert
+    capability cards and their schema.  A truncated/missing/ambiguous Git tree
+    or a symlink/executable/submodule must fail closed.
+    """
+    commit = api.get(_repo_endpoint(repository, f"commits/{expected_commit}"))
+    if not isinstance(commit, dict) or commit.get("sha") != expected_commit:
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "immutable policy commit did not resolve exactly")
+    tree_sha = commit.get("commit", {}).get("tree", {}).get("sha", "")
+    if not isinstance(tree_sha, str) or not SHA40_RE.fullmatch(tree_sha):
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "immutable policy tree sha is invalid")
+    response = api.get(
+        _repo_endpoint(repository, f"git/trees/{tree_sha}"), {"recursive": "1"},
+    )
+    if (not isinstance(response, dict) or response.get("truncated") is not False
+            or not isinstance(response.get("tree"), list)):
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "complete immutable policy Git tree is unavailable")
+    required = RELEASE_POLICY_FILESET | {"MANIFEST.sha256"}
+    observed: set[str] = set()
+    for entry in response["tree"]:
+        if not isinstance(entry, dict):
+            raise RegistryError("RELEASE_POLICY_TREE_INVALID", "invalid Git tree entry")
+        path = entry.get("path")
+        if path not in required:
+            continue
+        if path in observed:
+            raise RegistryError("RELEASE_POLICY_MODE_INVALID", f"duplicate policy Git tree path: {path}")
+        observed.add(path)
+        if (entry.get("type") != "blob" or entry.get("mode") != "100644"
+                or not isinstance(entry.get("sha"), str)
+                or not SHA40_RE.fullmatch(entry["sha"])):
+            raise RegistryError(
+                "RELEASE_POLICY_MODE_INVALID",
+                f"policy file must be a non-executable Git blob: {path}",
+            )
+    if observed != required:
+        raise RegistryError(
+            "RELEASE_POLICY_MODE_INVALID",
+            "immutable Git tree lacks required policy blobs",
+            missing=sorted(required - observed),
+        )
+
+
 def verify_policy_sources_from_immutable_commit(
     api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
     expected_policy_commit: str,
@@ -1182,6 +1229,7 @@ def verify_policy_sources_from_immutable_commit(
         if _sha256(raw) != manifest[path]:
             raise RegistryError("RELEASE_FILE_HASH_MISMATCH", "immutable policy file has wrong hash", path=path)
         actual[path] = raw
+    verify_immutable_policy_git_modes(api, repo, expected_policy_commit)
     try:
         remote_genesis = json.loads(actual["registry/GENESIS.json"])
         remote_schema = json.loads(actual["registry/projects.schema.json"])

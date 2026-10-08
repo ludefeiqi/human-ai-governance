@@ -106,6 +106,32 @@ CAPABILITY_PROFILES: dict[str, dict[str, Any]] = {
 }
 
 
+# These constraints are enforced by Python independently of the candidate
+# JSON Schema. A modified schema may never grant a capability execution rights.
+STATIC_CARD_FIELDS = frozenset({
+    "schema_version", "capability_id", "capability_version", "status",
+    "activation", "risk", "policy_lock", "dependencies", "contract",
+})
+STATIC_ACTIVATION = {
+    "enabled": False, "invocation": "FORBIDDEN", "implementation": "NONE",
+}
+STATIC_RISK = {
+    "class": "R0", "read_only": True,
+    "state_change": "NONE", "side_effects": "FORBIDDEN",
+}
+STATIC_POLICY_LOCK = {
+    "released_policy_version": "v0.2.0",
+    "released_policy_commit": RELEASED_POLICY_COMMIT,
+    "candidate_policy_version": "v0.2.1",
+    "design_stage": "S2",
+    "source_lock_path": SOURCE_LOCK_PATH,
+}
+STATIC_CONTRACT_FIELDS = frozenset({
+    "purpose", "allowed_operations", "forbidden_operations",
+    "success_states", "failure_states",
+})
+
+
 class CapabilityError(Exception):
     """Fail-closed validation error with a stable machine code."""
 
@@ -119,6 +145,61 @@ class CapabilityError(Exception):
         return {"status": "HOLD", "code": self.code, "message": self.message, **self.details}
 
 
+def _exact_static_object(value: Any, expected: Mapping[str, Any], field: str) -> None:
+    """Reject missing/extra fields and bool/int equivalence, even with a loose schema."""
+    if type(value) is not dict or set(value) != set(expected):
+        raise CapabilityError("CAPABILITY_SCHEMA_INVALID", f"{field} has unexpected fields")
+    for key, required in expected.items():
+        observed = value[key]
+        if type(observed) is not type(required) or observed != required:
+            raise CapabilityError("CAPABILITY_SCHEMA_INVALID", f"{field}.{key} violates immutable S2 contract")
+
+
+def _validate_static_card(card: Mapping[str, Any], capability_id: str) -> None:
+    """Out-of-schema, fail-closed immutable candidate contract."""
+    if type(card) is not dict or set(card) != STATIC_CARD_FIELDS:
+        raise CapabilityError("CAPABILITY_SCHEMA_INVALID", "card top-level keys are not fixed")
+    for field, required in (
+        ("schema_version", "1.0"),
+        ("capability_version", "1.0.0"),
+        ("status", "CANDIDATE_DEFINITION_ONLY"),
+    ):
+        if type(card[field]) is not str or card[field] != required:
+            raise CapabilityError("CAPABILITY_SCHEMA_INVALID", f"{field} must remain fixed")
+    if type(card["capability_id"]) is not str or card["capability_id"] != capability_id:
+        raise CapabilityError("CAPABILITY_ID_MISMATCH", f"card identity mismatch: {capability_id}")
+    _exact_static_object(card["activation"], STATIC_ACTIVATION, "activation")
+    _exact_static_object(card["risk"], STATIC_RISK, "risk")
+    _exact_static_object(card["policy_lock"], STATIC_POLICY_LOCK, "policy_lock")
+    contract = card["contract"]
+    if type(contract) is not dict or set(contract) != STATIC_CONTRACT_FIELDS:
+        raise CapabilityError("CAPABILITY_SCHEMA_INVALID", "contract keys must remain fixed")
+    purpose = contract["purpose"]
+    if type(purpose) is not str or not 1 <= len(purpose) <= 240:
+        raise CapabilityError("CAPABILITY_SCHEMA_INVALID", "contract purpose must be bounded text")
+    for field in ("allowed_operations", "forbidden_operations", "success_states", "failure_states"):
+        values = contract[field]
+        if type(values) is not list or any(type(item) is not str for item in values):
+            raise CapabilityError("CAPABILITY_SCHEMA_INVALID", f"contract.{field} must be string array")
+    dependencies = card["dependencies"]
+    if type(dependencies) is not list or any(type(item) is not str for item in dependencies):
+        raise CapabilityError("CAPABILITY_SCHEMA_INVALID", "dependencies must be a string array")
+
+
+def _reject_symlink_parents(root: Path, relative: str) -> None:
+    """Check every intermediate component, not merely the final file/dir."""
+    _validate_relative_path(relative, "capability path")
+    current = root
+    for part in PurePosixPath(relative).parts[:-1]:
+        current = current / part
+        try:
+            info = current.lstat()
+        except OSError as exc:
+            raise CapabilityError("PATH_INVALID", f"missing unsafe parent in {relative}") from exc
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            raise CapabilityError("PATH_INVALID", f"unsafe parent component in {relative}")
+
+
 def _validate_relative_path(value: str, field: str) -> None:
     if not SAFE_RELATIVE_RE.fullmatch(value):
         raise CapabilityError("PATH_INVALID", f"{field} is not a literal repository-relative path")
@@ -130,6 +211,7 @@ def _validate_relative_path(value: str, field: str) -> None:
 def _safe_file(root: Path, relative: str) -> Path:
     _validate_relative_path(relative, "capability path")
     root = root.resolve()
+    _reject_symlink_parents(root, relative)
     path = root.joinpath(*PurePosixPath(relative).parts)
     try:
         info = path.lstat()
@@ -251,6 +333,7 @@ def validate_capability_directory(root: Path) -> dict[str, Any]:
     """Validate only the fixed local S2 directory and return inert metadata."""
 
     root = root.resolve()
+    _reject_symlink_parents(root, CAPABILITY_DIRECTORY)
     directory = root / CAPABILITY_DIRECTORY
     try:
         directory_info = directory.lstat()
@@ -278,6 +361,7 @@ def validate_capability_directory(root: Path) -> dict[str, Any]:
     for capability_id, profile in sorted(CAPABILITY_PROFILES.items()):
         relative = f"{CAPABILITY_DIRECTORY}/{profile['filename']}"
         card = _load_json_file(_safe_file(root, relative))
+        _validate_static_card(card, capability_id)
         errors = _schema_errors(schema, card)
         if errors:
             raise CapabilityError(
