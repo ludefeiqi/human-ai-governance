@@ -1,0 +1,17 @@
+{
+  "format": "hagov.capability-domain.v1",
+  "domain_id": "codex",
+  "capabilities": [
+    {
+      "id": "codex.observe",
+      "intents": ["codex_observe"],
+      "description": "Plan bounded read-only observation of explicitly identified Codex state.",
+      "risk_class": "R0",
+      "side_effects": false,
+      "document_path": "capabilities/packs/codex-observe.md",
+      "sha256": "7636285f4f324285c3d2a989a33e9d27560be60a64e3ccfba598ff45be2da0d3",
+      "requires": [],
+      "tool_requirements": ["codex.status.read"]
+    }
+  ]
+}

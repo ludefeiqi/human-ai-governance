@@ -1,0 +1,17 @@
+{
+  "format": "hagov.capability-domain.v1",
+  "domain_id": "project",
+  "capabilities": [
+    {
+      "id": "project.restore",
+      "intents": ["global_restore", "project_restore"],
+      "description": "Plan evidence-separated governance or project restoration without changing project state.",
+      "risk_class": "R0",
+      "side_effects": false,
+      "document_path": "capabilities/packs/project-restore.md",
+      "sha256": "3d64fddba67e082ac0d125e32eb9b4e1e4632501dd518a0d5ac43fe9a4163bb6",
+      "requires": [],
+      "tool_requirements": ["repository.read"]
+    }
+  ]
+}

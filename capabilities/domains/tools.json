@@ -1,0 +1,17 @@
+{
+  "format": "hagov.capability-domain.v1",
+  "domain_id": "tools",
+  "capabilities": [
+    {
+      "id": "tool.route",
+      "intents": ["tool_select"],
+      "description": "Compare evidenced tool constraints and produce a non-executing selection recommendation.",
+      "risk_class": "R0",
+      "side_effects": false,
+      "document_path": "capabilities/packs/tool-routing.md",
+      "sha256": "305a4011888e520e82901bbd4e1a75b655315827413e6f9139fe7117445d2c2d",
+      "requires": [],
+      "tool_requirements": ["tool.inventory.read"]
+    }
+  ]
+}

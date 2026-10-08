@@ -10,7 +10,7 @@
 - 本实现应建独立分支，以 PR #6 HEAD 为父版本；在新候选上单一写入、分阶段提交并以 Git HEAD/CAS 复核。独立 reviewer 只能只读。
 - 已安装插件：`human-ai-governance-bootstrap` v0.2.0，release `pluginrel_6ac761de71488191b66468d32bcbcaa3`；不在本工程阶段更新它的来源锁、安装或权限。
 - 项目目录 `projects.yaml` 与仓库根 `AGENTS.md` 不修改；不接管 HOT、DOT/ROOT、Codex 在途任务或生产环境。
-- 唯一最新工程 NEXT：**S2 — 路由合同、结构化索引与 Schema（候选实现）**。任何后续阶段必须按下表关口对账。
+- 唯一最新工程 NEXT：**S3 — 安全加载器（候选实现）**。任何后续阶段必须按下表关口对账。
 - 每次状态修改：先核候选分支实际远端 HEAD 与本地父系，单写提交、不强推；提交后重新 GET HEAD、文件差分与 CI。文档中的状态以**提交时可证明的事实**为准；PR 设计回执不代替用户授权。
 
 ## 1. 分阶段闭环
@@ -18,8 +18,8 @@
 | 阶段 | 目标与最小范围 | 完成判据 / 证据 | 当前状态 | 后继 |
 | --- | --- | --- | --- | --- |
 | **S0 基线核对** | 核正式 Tag、PR #6、插件 release、根 AGENTS/作用域、既有测试基线 | 有精确 SHA、仓库/插件本轮实际读回，主分支未变 | **PASS**：见第0节 | S1 |
-| **S1 立账本** | 在独立候选分支记录唯一 NEXT、范围、权限、步骤和回退 | 仓库候选提交及远端 HEAD 读回、准确账本原文 | **PASS（待本阶段候选提交远端读回）** | S2 |
-| **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | TODO | S3 |
+| **S1 立账本** | 在独立候选分支记录唯一 NEXT、范围、权限、步骤和回退 | 仓库候选提交及远端 HEAD 读回、准确账本原文 | **PASS**：远端提交 `71f11ca3067505a567187ec885d747e5928f82b0` 已验证；本地 HEAD/父提交复核为 `71f11ca…` / `43d9ce7…` | S2 |
+| **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | **PASS（LOCAL）**：见第5节；未提交、未做远端 CI/独立复核/安装 | S3 |
 | **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | TODO | S4 |
 | **S4 三场景适配** | `project.restore`、`codex.observe`、`tool.route` 三个 R0 能力包，保留能力与工具两级选型 | 用户意图映射可复现；运行时只报告当次能力；不存在真实派工或写入 | TODO | S5 |
 | **S5 验收与性能** | 10/100/1000 合成规模，恶意输入、拒绝/降级/超时/UNKNOWN、状态一致性测试 | 记录目录读取次数、字节、所选正文数及耗时；无关能力规模扩大不引发正文全量加载；全 pytest、Manifest、diff 检查 | TODO | S6 |
@@ -56,3 +56,23 @@
 - **没有获得**正式政策发布、当前插件安装、HOT/任何业务项目写入或 writer 交接、真实生产/认证操作的批准。
 - 上游 PR #6 若改变 HEAD，停止集成假设，做有限差分对账；不自动更新本分支基线。
 - S8/S9 保持 HOLD，即使 S2–S7 所有测试 PASS。新窗口不能凭本账本获得业务执行许可。
+
+## 5. S2 本地实施证据（2026-10-09）
+
+### 5.1 实际范围
+
+- 新增候选协议 `CAPABILITY-ROUTING.md`，明确单一治理权威、最小 G0 内核、能力/工具两级路由、旧完整政策关口、失败停机、`UNKNOWN`、零副作用、预算和 S3 边界。
+- 新增 Draft 2020-12 `capabilities/catalog.schema.json`、轻量根目录、`project`/`codex`/`tools` 三个领域清单，以及 `project.restore`/`codex.observe`/`tool.route` 三个 R0-only 可读能力说明。
+- 逐级按原始字节绑定 SHA256：能力说明绑定到领域清单，领域清单绑定到根目录；引用路径均为精确仓库相对路径。
+- 新增 `tests/test_capability_catalog.py`，覆盖 Schema 自检与封闭结构、候选目录身份、三个领域/能力/意图精确集合、领域与能力包原始 SHA256、R0/无副作用、路径不越界/非符号链接、无外部文件，以及单意图只需一个领域和一个能力包的静态加载合同。
+- 仅扩充 `registry/validate_registry.py` 的 `OPTIMIZATION_POLICY_FILES` 和 `MANIFEST.sha256`；候选固定集合由 37 项增至 48 项。未修改 GENESIS、旧 Tag、A/B 审批逻辑、`projects.yaml`、注册/派工门禁、旧测试语义或 `clients/chatgpt-plugin/`。
+
+### 5.2 已执行验证
+
+1. `/private/tmp/hagov-p2-venv/bin/python -m pytest -q -p no:cacheprovider tests/test_capability_catalog.py` → `5 passed`。
+2. `/private/tmp/hagov-p2-venv/bin/python -m pytest -q -p no:cacheprovider` → `269 passed`。
+3. `/private/tmp/hagov-p2-venv/bin/python -m registry.validate_registry --root . validate-local` → `status=VERIFIED`、`phase=LOCAL_GENESIS`、`manifest_entries=48`、`dispatch_authorized=false`、`writer_change_authorized=false`。
+4. `/private/tmp/hagov-p2-venv/bin/python -m registry.validate_registry --root . validate-candidate` → `status=SCHEMA_PRECHECK_PASS`、`phase=GENESIS_SCHEMA_PRECHECK`、`manifest_entries=48`、`approval_verified=false`、`registry_trusted=false`、`dispatch_authorized=false`、`writer_change_authorized=false`。
+5. `git diff --check` → PASS（无输出，退出码 0）。
+
+以上仅证明当前未提交 worktree 的本地静态 S2 合同与既有测试兼容；未运行远端 CI、独立 reviewer、真实 Codex 任务、MCP、业务验收、正式发布、插件安装或客户端冷启动。S3–S9 状态保持原样，S3 不因本次 PASS 自动获准执行。

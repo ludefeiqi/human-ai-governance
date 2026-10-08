@@ -63,8 +63,17 @@ FIXED_POLICY_TEST_FILES = {
     "tests/test_transitions_and_manifest.py",
 }
 OPTIMIZATION_POLICY_FILES = {
+    'CAPABILITY-ROUTING.md',
     'CLIENT-CONTRACT.md',
     'RULE-MAP.md',
+    'capabilities/catalog.json',
+    'capabilities/catalog.schema.json',
+    'capabilities/domains/codex.json',
+    'capabilities/domains/project.json',
+    'capabilities/domains/tools.json',
+    'capabilities/packs/codex-observe.md',
+    'capabilities/packs/project-restore.md',
+    'capabilities/packs/tool-routing.md',
     'clients/build_plugin_overlay.py',
     'clients/chatgpt-plugin/README.md',
     'clients/chatgpt-plugin/skills/governance-bootstrap/SKILL.md',
@@ -78,6 +87,8 @@ OPTIMIZATION_POLICY_FILES = {
     'clients/chatgpt-plugin/skills/governance-bootstrap/references/runtime-adapter.md',
     'clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md',
     'clients/plugin-update.json',
+    'implementation/CAPABILITY-ROUTING-LEDGER.md',
+    'tests/test_capability_catalog.py',
     'tests/test_historical_approval.py',
     'tests/test_rule_contracts.py',
 }

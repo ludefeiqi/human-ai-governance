@@ -1,0 +1,28 @@
+{
+  "format": "hagov.capability-root.v1",
+  "version": 1,
+  "candidate_only": true,
+  "domains": [
+    {
+      "id": "project",
+      "description": "Read-only planning for global or project governance restoration.",
+      "intents": ["global_restore", "project_restore"],
+      "manifest_path": "capabilities/domains/project.json",
+      "sha256": "2f241419dcab637a523f3d050a3a1f4e268d8a6d4f87f1ccd913a6d27883b6a8"
+    },
+    {
+      "id": "codex",
+      "description": "Read-only planning for observing explicitly identified Codex state.",
+      "intents": ["codex_observe"],
+      "manifest_path": "capabilities/domains/codex.json",
+      "sha256": "de2be6552cd75fd3897e125fd8d873438684ff6b9c64e59aef837a56c0ee423b"
+    },
+    {
+      "id": "tools",
+      "description": "Read-only tool selection planning without probing or execution.",
+      "intents": ["tool_select"],
+      "manifest_path": "capabilities/domains/tools.json",
+      "sha256": "c721062bc389b710b7fb62f4b79ab5e1da3440649736c2c74bc3c36579671afb"
+    }
+  ]
+}
