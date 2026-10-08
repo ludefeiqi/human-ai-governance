@@ -22,10 +22,10 @@ def test_one_governance_authority_not_seven_agents():
     assert "不是 Agent 数量" in t and "不是第二个治理权威" in t
     assert "领域" in t and "不自动" in t
 
-def test_candidate_tag_is_not_current_release():
+def test_candidate_tag_v022_does_not_alter_published_v021():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
-    assert g["release_tag"]=="v0.2.1"
-    assert "v0.2.1 整理候选" in (ROOT/"GOVERNANCE.md").read_text()
+    assert g["release_tag"]=="v0.2.2"
+    assert "v0.2.2 候选" in (ROOT/"GOVERNANCE.md").read_text()
 
 def test_plugin_overlay_pins_only_the_released_v020():
     plan=json.loads((ROOT/"clients/plugin-update.json").read_text())

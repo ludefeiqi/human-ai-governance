@@ -206,3 +206,14 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 正式主线仍 `v0.2.0 / main=7aced01a8c12e1bba5e810ce91ab425f4615d4a7`；旧 annotated Tag `093eb9cf706d46268118c2a877906b24fc9ce391` unsigned；`v0.2.1` Tag 不存在。GitHub branch protection/rulesets API 为 HTTP 403，**是否存在真实 GitHub 强制保护 UNKNOWN**，未经批准不得依据本地推断发起共享写入。安装插件已通过 Plugin Creator 本轮只读实核为 `0.2.0 / pluginrel_6ac761de71488191b66468d32bcbcaa3`，没有升级。
 - 本节新增的仅治理工程**非 Manifest 权威实施账本**审查结果会产生一个新的 Draft HEAD：必须单独核其只有账本变化、旧源 Manifest 原始 SHA 不变，并运行该精确 HEAD 原生 CI、最小只读审查；之后 PR body 可再按准确 HEAD 更新并追加最后审查关联评论。不可用本节文字自证新 HEAD 已被之前 `ee754b49…` 全量审查覆盖。
 - **S6 阶段裁定：HOLD_FOR_EXPLICIT_RELEASE_APPROVAL / REVIEW_READY（限定完整代码候选）**。用户此前授权明确只包括候选返修和验收，不包括将 PR 转 Ready、merge、Tag、发布后采用、插件修改、HOT 写口移交或运行任务。S7 仍 `HOLD_FOR_SEPARATE_PLUGIN_APPROVAL`。
+
+
+## 19. GitHub 原生版本保护候选（2026-10-09；独立于已归档 S7）
+
+- 本节为附加**仓库运维/版本管控候选账本**，不是业务项目第二账本，不改变 S6 v0.2.1 的不可变发布事实，不继承任何项目派工许可。
+- 正式基线：v0.2.1 Tag 对象 bf80e4af9b088f65f6f47c7d60313239023d7093 -> Merge Commit 8284952acf2ddf817b6fe4a0b7d6ef4fea4e5e18；raw MANIFEST a7de7d1b8f0ed694fa0e05b047d3af1d2316d5055bd57ae29b83de0a2130180d，49 个固定文件；插件已安装 0.3.0 仍锁 v0.2.1。
+- 已实际开启并读回：GitHub immutable-releases.enabled=true，v0.2.0/v0.2.1 的 GitHub Releases 均 immutable=true，Tag 与附件 digest 验证通过，Latest=v0.2.1。v0.1.0 早期 Release immutable=false，**不删除重建**。GitHub Actions allowed_actions=selected，github_owned_allowed=true、verified_allowed=false、patterns_allowed=[]；默认 GITHUB_TOKEN 只读且不得审批 PR。仅允许 merge-commit PR 合并，禁 squash/rebase。
+- 仍受**平台限制**：GitHub private personal 仓库 main.protected=false；GET /branches/main/protection 与 /rulesets 都 HTTP 403 (requires GitHub Pro or public repo)。用户目标为私库不可污染，故绝不自动转公开、升级付费或冒称已有强制检查；需要用户另行完成受支持的套餐与真实第二 reviewer 准备。
+- 待验的 v0.2.2 候选：仅在新草稿分支引入 GitHub 完整 SHA pinned Actions、每 PR 必跑 validate、main/tag/release 的只读完整性检查、CODEOWNERS 与官方版本操作说明、严格 GENESIS v0.2.2→保持 v0.2.1 未发布语义及对应的 52 项固定文件 Manifest。用户未再次批准准确 v0.2.2 发布 Commit，不合并、不创建新 Tag、不更新插件。GitHub repo-level sha_pinning_required **暂 false**，需待新工作流确实正式通过和运行验证后再开启，避免中断正式 v0.2.1 原工作流。
+- 此文记录的仓库设置是 GitHub 当前读回状态；平台设置是否继续生效需未来实时再读。已发布政策 v0.2.1、项目目录、业务 writer、项目源码、运行态、生产、身份和账号费用均未在本候选更新。
+- 用户下一步必要动作：保持私库，选择可支持 private branch protection/rulesets 的 GitHub 计划（个人库通常是 GitHub Pro），落实可真实审批的独立 GitHub reviewer，再配置 main/tag active 强制规则并验证。没有平台支持时 Draft PR 只给出候选而不是已发布治理授权。

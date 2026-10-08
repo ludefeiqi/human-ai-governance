@@ -1,6 +1,6 @@
 # REGISTRY-PROTOCOL.md — G2/G3 受控发现与审批实施
 
-v0.2.1 候选，生效条件见 G2-RELEASE-01。本协议是目录及 A/B 规则的唯一规范出处，不自动授予共享写入或项目访问。历史语义变更见 RULE-MAP.md；未发布前运行端仍使用自己的已批准旧policy。
+v0.2.2 候选；v0.2.1 已正式发布且来源固定，v0.2.2 仅增强仓库版本管理，生效条件见 G2-RELEASE-01。本协议是目录及 A/B 规则的唯一规范出处，不自动授予共享写入或项目访问。历史语义变更见 RULE-MAP.md；未发布前运行端仍使用自己的已批准旧policy。
 
 ## R1 三轨来源与初始化
 固定政策：外部 exact Commit pin → annotated Tag 解引用 → 完整 Manifest 文件集合及逐项原始 SHA256 → 当前运行 validator/Schema/GENESIS 比对。三个公开 pre-merge/post-merge/audit-chain 与 audit-main 都要求独立 pin；先固定传入对象的副本，caller 后改 A/B 不生效。候选 v0.2.1 Tag 缺失必须 HOLD；不移动 v0.2.0 Tag、不自动采用新代码。

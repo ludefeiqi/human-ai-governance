@@ -38,6 +38,7 @@ Global Controller Governance 是本体系内跨项目治理规则的最高权威
 ## G2 政策、版本与同步
 
 ### G2-RELEASE-01 发布合同
+此 **v0.2.2 候选**仅强化 GitHub 原生版本控制；已发布 v0.2.1 和当前安装的插件来源锁在完成新 Tag、独立发布审批和后续插件明确采用前均不得漂移。Immutable Releases 只锁发布后的 Tag/附件，不保护 main。CODEOWNERS 与 CI 仅在 GitHub 正式分支保护/Rulesets 生效时才是强制合并门禁，个人私库当前套餐的 403 必须明示。执行细则和官方文档入口见 releases/GITHUB-VERSION-MANAGEMENT.md。
 提案 → 准确候选与差分 → 按风险独立只读复核 → 用户明确发布批准 → 受控提交/发布 → 原始字节和正式 Tag 读回 → 运行端显式采用。批准记录须关联 candidate Commit、Manifest SHA256、审查引用/结论、用户批准来源与时间精度、release PR/Commit/Tag、适用范围；缺项/矛盾为 APPROVAL_MISMATCH。用户消息时间不可取得时如实标精度，不伪造时间。项目采用集合默认空。
 
 ### G2-SOURCE-02 政策来源

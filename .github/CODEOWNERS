@@ -1,0 +1,9 @@
+# Governance source ownership; GitHub private-repo enforcement requires
+# an eligible subscription and a configured branch/ruleset protection rule.
+# Owner attribution itself is NOT independent review or approval.
+* @ludefeiqi
+/.github/ @ludefeiqi
+/.github/CODEOWNERS @ludefeiqi
+/MANIFEST.sha256 @ludefeiqi
+/registry/ @ludefeiqi
+/clients/ @ludefeiqi
