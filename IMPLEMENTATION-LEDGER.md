@@ -24,7 +24,7 @@
 | S0 基线与边界 | 锁定正式版本/候选与授权边界 | 本轮用户明确同意制定实施账本 | 本账本、GitHub PR/HEAD 与插件现况 | 当次 HEAD 与版本读回、边界实际未变 | **PASS：基线与候选已在本轮独立读回** |
 | S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **PASS_DESIGN：修订后独立只读 APPROVE_DESIGN** |
 | S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **PASS**（仅静态候选，不授权运行） |
-| S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **NOT_STARTED** |
+| S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **NOT_STARTED** |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
 | S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：按已通过的 S1 设计开始 S3 受控装载器（请求→最小依赖闭包→静态元数据与 coverage），只在候选分支实现并以合成负例证明无能力调用/无额外政策校验减免。不得进入 S4，除非 S3 按阶段独立验收 PASS。
+当前 **唯一 NEXT**：对 S3 准确候选 HEAD、实际固定文件集及新的 GitHub CI 进行独立 R0 只读设计复核；被拒则只返修受影响范围。S3 未 PASS 前不得启动 S4；S6/S7 仍为独立发布/采用关口。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -111,3 +111,13 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 协调者基于同一修复提交的本地全量 `309 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`（无审批/派工能力）；Manifest 文件集 43，全量哈希；真实 GitHub Git Tree `5d654b7d74b35332e960582f6613ebdf166523ec` 读取 `truncated=false`，能力 JSON、Schema、两个验证器与 Manifest 均 `blob/100644`。
 - 独立 Codex `gpt-5.6-sol` / read-only / ephemeral 对准确修复 HEAD、原先三个阻断及本次差分进行只读设计复审，结论 **APPROVE_DESIGN**，未发现本范围的新阻断；独立审查不是人类签发、运行授权或 GitHub 的第二个审批账号。
 - 结论：**S2 PASS_STATIC_CANDIDATE**。旧 `REQUEST_CHANGES` 保留历史；本节只对 S2 静态规范、代码和合成/远端证据有效。S3 尚未实施；S6 正式政策发布及 S7 插件采用均维持原审批关口。
+
+
+## 10. S3 最小上下文装载候选（2026-10-09，待独立审查）
+
+- 已核前置：S2 精确已审提交 `258c786223eb64d83d0869b3d578bb4029068683` 的真实 CI 与独立 `APPROVE_DESIGN`；S2 账本接受提交 `8fb05096c98a615b0326f8db72ce6b4c4b632554` 已推送原 PR #6 Draft，`validate` completed/success，job `113455921412`。原 `main` 仍锁 v0.2.0。
+- S3 新增纯函数式 `registry/route_capabilities.py`，输入只接受三个规范化意图（PROJECT_RESTORE_READ_ONLY / CODEX_OBSERVE_EXISTING_READ_ONLY / TOOL_ROUTE_PLAN_ONLY）；固定目录先完整预检 3 个能力卡，再只把依赖闭包关联正文送入候选上下文。未列出任务直接拒绝，不由自由文字、能力卡目的文本或可变 Schema 授权。
+- 返回字段显式分离 `catalog_preflight_scope=ALL_FIXED_CARDS` 与 `context_loaded_ids`；未把读取全目录说成按需免核验。纯本地静态候选未运行远端已发布政策核验，明确报告 `full_released_policy_verification=NOT_PERFORMED_REQUIRED_FOR_REAL_LAUNCH`、`activation=DISABLED`、`dispatch_authorized=false`、`registry_trusted=false`、`tools_invoked=0`；未引入实际工具路由、网络或业务侧效果。
+- 真实目录只读试载（每次完整预检三卡）：项目恢复 `tool.route+project.restore`，context_chars=2361；Codex 只读观察 `tool.route+codex.observe`，context_chars=2211；工具候选计划 `tool.route`，context_chars=1122；无关上下文模块=0、工具调用=0。该指标为结构化 JSON 字符数，不是模型 Token 或实际工作耗时。
+- 扩增 18 项 S3 测试，覆盖三类闭包、零越权、恶意任务、未选卡异常、提示注入、preflight 后文件漂移、symlink、确定性、source-lock 拒绝；全量 `327 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`，Manifest 固定候选 45 项。
+- 当前裁定：**S3 IMPLEMENTED_CANDIDATE / REVIEW_PENDING**，只有 CI、准确 HEAD 的独立只读审查均过且无阻断，才能标 S3 PASS 并进入 S4。
