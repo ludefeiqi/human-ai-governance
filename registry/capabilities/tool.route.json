@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "tool.route",
+  "capability_version": "1.0.0",
+  "status": "CANDIDATE_DEFINITION_ONLY",
+  "activation": {
+    "enabled": false,
+    "invocation": "FORBIDDEN",
+    "implementation": "NONE"
+  },
+  "risk": {
+    "class": "R0",
+    "read_only": true,
+    "state_change": "NONE",
+    "side_effects": "FORBIDDEN"
+  },
+  "policy_lock": {
+    "released_policy_version": "v0.2.0",
+    "released_policy_commit": "7aced01a8c12e1bba5e810ce91ab425f4615d4a7",
+    "candidate_policy_version": "v0.2.1",
+    "design_stage": "S2",
+    "source_lock_path": "clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md"
+  },
+  "dependencies": [],
+  "contract": {
+    "purpose": "Define selection of an already exposed and approved tool path without invoking or connecting it.",
+    "allowed_operations": [
+      "inspect_exposed_tool_metadata",
+      "select_approved_adapter",
+      "report_tool_unavailable",
+      "select_read_only_effect_query"
+    ],
+    "forbidden_operations": [
+      "connect_new_tool",
+      "grant_permission",
+      "bypass_refusal",
+      "invoke_selected_tool",
+      "dispatch_agent",
+      "scan_unrelated_tools"
+    ],
+    "success_states": ["ROUTE_R0_READY"],
+    "failure_states": [
+      "AUTHORIZATION_BLOCKED",
+      "CAPABILITY_UNAVAILABLE",
+      "EFFECT_UNKNOWN",
+      "TOOL_UNAVAILABLE"
+    ]
+  }
+}

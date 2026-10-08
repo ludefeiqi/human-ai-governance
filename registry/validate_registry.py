@@ -25,6 +25,8 @@ from jsonschema import Draft202012Validator, FormatChecker
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 from yaml.tokens import AliasToken, AnchorToken, DirectiveToken, TagToken
 
+from registry.validate_capabilities import CapabilityError, validate_capability_directory
+
 
 MAX_INDEX_BYTES = 256 * 1024
 MAX_YAML_DEPTH = 24
@@ -61,6 +63,7 @@ FIXED_POLICY_TEST_FILES = {
     "tests/test_single_owner_approval.py",
     "tests/test_strict_reader.py",
     "tests/test_transitions_and_manifest.py",
+    "tests/test_capability_catalog.py",
 }
 OPTIMIZATION_POLICY_FILES = {
     'CLIENT-CONTRACT.md',
@@ -80,6 +83,11 @@ OPTIMIZATION_POLICY_FILES = {
     'clients/plugin-update.json',
     'tests/test_historical_approval.py',
     'tests/test_rule_contracts.py',
+    'registry/capabilities/capability-card.schema.json',
+    'registry/capabilities/codex.observe.json',
+    'registry/capabilities/project.restore.json',
+    'registry/capabilities/tool.route.json',
+    'registry/validate_capabilities.py',
 }
 RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES | OPTIMIZATION_POLICY_FILES
 
@@ -1461,6 +1469,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command in {"validate-local", "validate-candidate"}:
             index, raw = load_index(index_path, schema)
             manifest = validate_manifest(root, manifest_path)
+            capability_report = validate_capability_directory(root)
             if args.command == "validate-local":
                 validate_genesis_index(genesis, index, raw)
                 result: Mapping[str, Any] = {
@@ -1468,12 +1477,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "phase": "LOCAL_GENESIS",
                     "index_sha256": _sha256(raw),
                     "manifest_entries": len(manifest),
+                    "capabilities": capability_report,
                     **build_report(index),
                 }
             else:
                 result = {
                     **candidate_schema_precheck(genesis, index, raw),
                     "manifest_entries": len(manifest),
+                    "capabilities": capability_report,
                 }
         else:
             api = GhApi()
@@ -1498,7 +1509,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             else:
                 result = reviewer_readiness(api, genesis)
-    except RegistryError as exc:
+    except (RegistryError, CapabilityError) as exc:
         print(json.dumps(exc.as_dict(), ensure_ascii=False, sort_keys=True))
         return 2
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

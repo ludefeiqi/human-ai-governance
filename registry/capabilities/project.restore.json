@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "project.restore",
+  "capability_version": "1.0.0",
+  "status": "CANDIDATE_DEFINITION_ONLY",
+  "activation": {
+    "enabled": false,
+    "invocation": "FORBIDDEN",
+    "implementation": "NONE"
+  },
+  "risk": {
+    "class": "R0",
+    "read_only": true,
+    "state_change": "NONE",
+    "side_effects": "FORBIDDEN"
+  },
+  "policy_lock": {
+    "released_policy_version": "v0.2.0",
+    "released_policy_commit": "7aced01a8c12e1bba5e810ce91ab425f4615d4a7",
+    "candidate_policy_version": "v0.2.1",
+    "design_stage": "S2",
+    "source_lock_path": "clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md"
+  },
+  "dependencies": ["tool.route"],
+  "contract": {
+    "purpose": "Define restoration of authorized project source, ledger state, and runtime evidence without changing project authority.",
+    "allowed_operations": [
+      "read_authorized_project_sources",
+      "read_same_head_ledger_and_rules",
+      "separate_source_state_runtime",
+      "report_declared_next_from_ledger_only"
+    ],
+    "forbidden_operations": [
+      "adopt_project",
+      "change_writer",
+      "write_project",
+      "invoke_runtime",
+      "infer_declared_next"
+    ],
+    "success_states": ["SOURCE_VERIFIED", "STATE_RESTORED", "STATE_PARTIAL"],
+    "failure_states": [
+      "AUTHORIZATION_BLOCKED",
+      "CAPABILITY_NOT_FOUND",
+      "GLOBAL_R0_PARTIAL",
+      "HASH_MISMATCH",
+      "PATH_INVALID",
+      "PROJECT_HEAD_DRIFT",
+      "STATE_UNKNOWN"
+    ]
+  }
+}

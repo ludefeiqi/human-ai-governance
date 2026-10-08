@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ludefeiqi/human-ai-governance/registry/capabilities/capability-card.schema.json",
+  "title": "Human-AI Governance candidate R0 capability card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_id",
+    "capability_version",
+    "status",
+    "activation",
+    "risk",
+    "policy_lock",
+    "dependencies",
+    "contract"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*)+$"
+    },
+    "capability_version": {"const": "1.0.0"},
+    "status": {"const": "CANDIDATE_DEFINITION_ONLY"},
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "invocation", "implementation"],
+      "properties": {
+        "enabled": {"const": false},
+        "invocation": {"const": "FORBIDDEN"},
+        "implementation": {"const": "NONE"}
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "read_only", "state_change", "side_effects"],
+      "properties": {
+        "class": {"const": "R0"},
+        "read_only": {"const": true},
+        "state_change": {"const": "NONE"},
+        "side_effects": {"const": "FORBIDDEN"}
+      }
+    },
+    "policy_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "released_policy_version",
+        "released_policy_commit",
+        "candidate_policy_version",
+        "design_stage",
+        "source_lock_path"
+      ],
+      "properties": {
+        "released_policy_version": {"const": "v0.2.0"},
+        "released_policy_commit": {"const": "7aced01a8c12e1bba5e810ce91ab425f4615d4a7"},
+        "candidate_policy_version": {"const": "v0.2.1"},
+        "design_stage": {"const": "S2"},
+        "source_lock_path": {
+          "const": "clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*)+$"
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "allowed_operations",
+        "forbidden_operations",
+        "success_states",
+        "failure_states"
+      ],
+      "properties": {
+        "purpose": {"type": "string", "minLength": 1, "maxLength": 240},
+        "allowed_operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"}
+        },
+        "forbidden_operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"}
+        },
+        "success_states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$"}
+        },
+        "failure_states": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$"}
+        }
+      }
+    }
+  }
+}
