@@ -22,8 +22,8 @@
 | 阶段 | 唯一目标 | 前置 | 主要交付物 | 验收证据（不可替代） | 当前状态 |
 | --- | --- | --- | --- | --- | --- |
 | S0 基线与边界 | 锁定正式版本/候选与授权边界 | 本轮用户明确同意制定实施账本 | 本账本、GitHub PR/HEAD 与插件现况 | 当次 HEAD 与版本读回、边界实际未变 | **PASS：基线与候选已在本轮独立读回** |
-| S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **REVIEW_PENDING：已获 REQUEST_CHANGES，待修正后复审** |
-| S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **NOT_STARTED** |
+| S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **PASS_DESIGN：修订后独立只读 APPROVE_DESIGN** |
+| S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **NEXT / NOT_STARTED** |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **NOT_STARTED** |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **NOT_STARTED** |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
@@ -70,5 +70,12 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：在 Draft 候选中完成 **S1 独立只读设计复核**；复核有阻断则只修改 S1 受影响内容，复核通过后进入 S2 的三项能力卡与 Schema。
+当前 **唯一 NEXT**：S2 三项只读能力卡、严格 Schema、依赖闭包及负例测试。S1 已独立批准设计；不授予政策发布、插件安装、项目 writer 或业务派工。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
+
+## 5. S1 两轮独立设计审查（2026-10-09）
+
+- 首轮 HEAD `4a848b2e1b620e54938c48ea864f0d8401c87a52`：REQUEST_CHANGES，S0 缺真实来源、S1 缺矩阵/向量/计量。保留否决记录。
+- 复审 HEAD `272906c1210f2ce13eb190f8cd7057175d3db5c2`：独立 Codex gpt-5.6-sol R0 只读 APPROVE_DESIGN；四处缺口已补齐，未见本范围内设计阻断。复审核了真实 GitHub HEAD 和插件服务端元数据，未运行测试。
+- 修订前一次 GitHub Actions success（job 113438420369）不可代替后续 Commit CI；每次有新 Head 都重新检查。
+- 效力：S0 PASS_SCOPE_BASELINE；S1 PASS_DESIGN；唯一 NEXT=S2。此批准仅为候选设计阶段，不是正式政策/业务授权。
