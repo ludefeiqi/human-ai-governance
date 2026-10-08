@@ -27,7 +27,7 @@
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **PASS**（仅候选纯静态上下文） |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **PASS**（仅 R0 观测及禁用路由候选） |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **PASS**（仅合成规模、安全与单次 R0 读取证据） |
-| S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
+| S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL**（修复与完整 PR R0 复审已达 REVIEW_READY） |
 | S7 插件采用与冷启动 | 受控更新现有插件，并做真实新窗口恢复 | 正式政策已发布且插件采用另批 | Plugin CAS 更新、新 Chat 验收、真实项目恢复 | 当前 release ID 读回、真实冷启动、无自动 writer 转移 | **HOLD_FOR_SEPARATE_PLUGIN_APPROVAL** |
 
 阶段状态仅用 `NOT_STARTED / IN_PROGRESS / IMPLEMENTED_CANDIDATE / REVIEW_PENDING / PASS / FAIL / HOLD`；其中 IMPLEMENTED_CANDIDATE 不等于验收通过。
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：完成 S6 被否决的发布前候选修复与新 HEAD 复核：核 v0.2.1 未发布行为、准确 CI 和独立全局 R0 评审，并将 PR #6 发布说明/新增审查证据绑定最终候选；仍保持 Draft 和 S6 HOLD，未取得单独正式发布批准前不合并、不创建/移动 Tag、不更新 main 或插件。
+当前 **唯一 NEXT**：S6 的代码修复与完整 PR 独立发布前审查已达到 REVIEW_READY_NEEDS_HUMAN_APPROVAL；须先对本次仅账本记录变更产生的最终 Draft HEAD 完成新 CI 与最小只读差分核验，并刷新 PR #6 精确 HEAD/证据。其后 **只能等待用户对准确最终 HEAD、Manifest、审查证据和缺失分支保护风险的正式发布批准**；批准前 S6 保持 HOLD，不合并、不签 Tag、不更改 main 或插件；S7 更须单独批准。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -194,3 +194,15 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 用户本轮**仅批准** S6 候选修复及重新验收、允许在原 Draft 分支及 PR 发布说明/追加审查证据范围写入；**未批准**合并、正式 Tag、插件安装、项目接入或 writer/业务执行权限变更。
 - 最小修复：候选 GENESIS 的 v0.2.1 `unreleased_behavior` 改为 `HOLD_V0_2_0_SEMANTICS`；验证器按已标明的 `release_tag` 强制映射 `v0.2.0 → HOLD_V0_1_SEMANTICS`（历史兼容）和 `v0.2.1 → HOLD_V0_2_0_SEMANTICS`（此候选），错误交叉组合及试图自动启用/漂移的值一律 `GENESIS_UNRELEASED_INVALID`。`tests/helpers.py` 原 v0.2.0 测试基线保留原值，不能为了新候选更改历史测试源；在 `tests/test_transitions_and_manifest.py` 增加八项发布版本/负例及真实本候选 GENESIS 静态证明。
 - 候选发布流程下一动作：对**修复后精确新 HEAD**重跑完整固定文件/Manifest 与 403 项预计测试，核原生 GitHub CI；然后同步 Draft PR #6 的准确 HEAD、Manifest、运行证据及 **人类正式发布授权仍缺失** 的状态，进行独立全 PR R0 只读再审；必要时新增 owner 账号可追溯评论，**不得**冒充第二 GitHub reviewer、独立账号签名或正式 owner 发布批准。新审查若否决，局部 HOLD 和返修；通过亦仅进入 `REVIEW_READY_NEEDS_HUMAN_APPROVAL`，S6/S7 不能自动 PASS。
+
+
+## 18. S6 完整发布级复审通过，仍待独立人类发布批准（2026-10-09）
+
+- S6 修复候选准确 Commit：`ee754b49f7971351a097780c16316096c3bbfa73`，唯一父提交 `f29b594d48a5cadc46e5923f75cf00d5cfee8da6`；GitHub PR #6 仍 Draft、unmerged；代码树 `49c42104e3baa4a947775a40fa262bd54f2543a1`。此轮代码差分 5 个文件：GENESIS、validator、8 个测试、Manifest 和本实施账本。
+- `Manifest.sha256` 仍固定 **49** 份政策/测试文件，其远端原始字节 SHA256 = `a7de7d1b8f0ed694fa0e05b047d3af1d2316d5055bd57ae29b83de0a2130180d`；49 项在已审核的本地工作树逐文件核摘要一致；远端 Git tree 中含 Manifest 的 50 个对象均 `blob/100644`，Git Tree 不截断。原生 GitHub Actions `validate` 对 `ee754b49…` 的 job `113490001236` 为 completed/success，403 passed，原生 candidate 输出仍明确 `approval_verified=false`、`registry_trusted=false` 和禁止业务派工。
+- 第 17 节 S6 首次 **REQUEST_CHANGES** 的 GENESIS 版本语义及 PR body 过期两项实质阻断已闭环；S6 再次独立 `Codex gpt-5.6-sol` / `read-only ephemeral` 对当前 **完整 45 changed-file Draft PR** 和精确修复 `ee754b49…` 进行独立发布设计复审，结果：**REVIEW_READY_NEEDS_HUMAN_APPROVAL / no remaining material design blockers**，**不是 S6 PASS 或用户授权**。上轮否决仍保留历史，不将 S0–S5 局部 PASS 偷换成正式发布验收。
+- 精确 PR 发布说明已更新并双向读回到 `ee754b49…`、403 tests、49 files、准确 Manifest 和 CI，并列出无 force 的预检查、merge 后 main/字节 readback、新 annotated Tag 解引用以及发布后严格审计。这些是**待人类批准的计划**而不是实际执行。
+- GitHub owner 账号通过可追溯追加评论存档独立模型复审的限定摘要：<https://github.com/ludefeiqi/human-ai-governance/pull/6#issuecomment-6067177518>；因其中将“不触碰业务 writer”表述得过于宽泛，已另作**不编辑原评论**的事实范围纠偏：<https://github.com/ludefeiqi/human-ai-governance/pull/6#issuecomment-6067193622>。两条评论都**不是** GitHub 第二审核人、独立密码学签名、正式 owner 发布批准或项目原账本来源。业务项目当前 writer、项目 ledger、实际运行态 **NOT_CHECKED_IN_S6**；可证明的仅是本轮 Governance 候选未修改业务仓库与登记权限。
+- 正式主线仍 `v0.2.0 / main=7aced01a8c12e1bba5e810ce91ab425f4615d4a7`；旧 annotated Tag `093eb9cf706d46268118c2a877906b24fc9ce391` unsigned；`v0.2.1` Tag 不存在。GitHub branch protection/rulesets API 为 HTTP 403，**是否存在真实 GitHub 强制保护 UNKNOWN**，未经批准不得依据本地推断发起共享写入。安装插件已通过 Plugin Creator 本轮只读实核为 `0.2.0 / pluginrel_6ac761de71488191b66468d32bcbcaa3`，没有升级。
+- 本节新增的仅治理工程**非 Manifest 权威实施账本**审查结果会产生一个新的 Draft HEAD：必须单独核其只有账本变化、旧源 Manifest 原始 SHA 不变，并运行该精确 HEAD 原生 CI、最小只读审查；之后 PR body 可再按准确 HEAD 更新并追加最后审查关联评论。不可用本节文字自证新 HEAD 已被之前 `ee754b49…` 全量审查覆盖。
+- **S6 阶段裁定：HOLD_FOR_EXPLICIT_RELEASE_APPROVAL / REVIEW_READY（限定完整代码候选）**。用户此前授权明确只包括候选返修和验收，不包括将 PR 转 Ready、merge、Tag、发布后采用、插件修改、HOT 写口移交或运行任务。S7 仍 `HOLD_FOR_SEPARATE_PLUGIN_APPROVAL`。
