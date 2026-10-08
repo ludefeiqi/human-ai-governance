@@ -12,6 +12,27 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact EXISTING annotated release tag; draft only
+        required: true
+        type: string
+      release_id:
+        description: Numeric GitHub draft Release ID
+        required: true
+        type: string
+      expected_tag_object_sha:
+        description: Exact annotated Git tag object SHA (40 hex)
+        required: true
+        type: string
+      expected_commit:
+        description: Exact published candidate Merge Commit SHA (40 hex)
+        required: true
+        type: string
+      expected_manifest_sha256:
+        description: Exact SHA256 of raw MANIFEST.sha256 (64 hex)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -29,8 +50,22 @@ jobs:
       - name: Checkout pinned revision without persistent credentials
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 exact official commit
         with:
+          # PR checks must test the ACTUAL source HEAD, not refs/pull/N/merge.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Require the exact PR source HEAD (fail-closed)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$PR_HEAD" =~ ^[0-9a-f]{40}$ ]] || exit 13
+          if [[ "$(git rev-parse HEAD)" != "$PR_HEAD" ]]; then
+            echo "PR_SOURCE_HEAD_MISMATCH" >&2
+            exit 14
+          fi
       - name: Setup pinned Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 exact official commit
         with:
@@ -49,16 +84,63 @@ jobs:
         shell: bash
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            git diff --check "$PR_BASE" HEAD
+            [[ "$PR_HEAD" =~ ^[0-9a-f]{40}$ ]] || exit 13
+            [[ "$(git rev-parse HEAD)" == "$PR_HEAD" ]] || exit 14
+            git diff --check "$PR_BASE" "$PR_HEAD"
           elif [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF_TYPE" == "branch" ]]; then
             if [[ "$PUSH_BEFORE" =~ ^[0-9a-f]{40}$ ]] && [[ "$PUSH_BEFORE" != 0000000000000000000000000000000000000000 ]]; then
               git diff --check "$PUSH_BEFORE" HEAD
             fi
           fi
+
+  preflight-draft:
+    name: preflight-draft
+    needs: validate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_ID: ${{ inputs.release_id }}
+      EXPECTED_TAG_SHA: ${{ inputs.expected_tag_object_sha }}
+      EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      EXPECTED_MANIFEST: ${{ inputs.expected_manifest_sha256 }}
+    steps:
+      - name: Check out the actual default branch (must equal requested policy Commit)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-registry.lock
+      - run: python -m pip install -r requirements-registry.lock
+      - name: Fail closed when the default branch diverged before drafting
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || exit 21
+          [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || exit 22
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_COMMIT" ]] || exit 23
+      - name: Audit existing Tag plus staged DRAFT Release assets BEFORE publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m registry.verify_release_preflight             --tag "$RELEASE_TAG"             --release-id "$RELEASE_ID"             --expected-tag-object-sha "$EXPECTED_TAG_SHA"             --expected-commit "$EXPECTED_COMMIT"             --expected-manifest-sha256 "$EXPECTED_MANIFEST"
+      - name: Independently verify policy and authorized dynamic source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m registry.validate_registry --root . audit-main --expected-policy-commit "$EXPECTED_COMMIT"
 
   audit-published:
     name: audit-published

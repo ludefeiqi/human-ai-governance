@@ -38,6 +38,12 @@ def test_required_pr_check_is_not_filtered_and_publication_triggers_are_read_onl
     assert w["jobs"]["validate"]["name"]=="validate"
     assert w["jobs"]["audit-published"]["name"]=="audit-published"
     assert w["jobs"]["audit-published"]["needs"]=="validate"
+    assert w["jobs"]["preflight-draft"]["needs"]=="validate"
+    assert w["jobs"]["preflight-draft"]["if"]=="github.event_name == 'workflow_dispatch'"
+    assert set(w["on"]["workflow_dispatch"]["inputs"])=={
+        "tag", "release_id", "expected_tag_object_sha",
+        "expected_commit", "expected_manifest_sha256",
+    }
 
 
 def test_only_github_owned_full_commit_sha_actions_are_admitted():
@@ -46,7 +52,7 @@ def test_only_github_owned_full_commit_sha_actions_are_admitted():
         step["uses"] for job in w["jobs"].values()
         for step in job["steps"] if "uses" in step
     ]
-    assert len(refs)==4
+    assert len(refs)==6
     assert {x.split("@",1)[0] for x in refs}=={
         "actions/checkout","actions/setup-python"
     }
@@ -73,9 +79,14 @@ def test_no_automatic_policy_mutation_or_credential_escalation_in_ci():
         assert forbidden not in s
     assert "audit-main --expected-policy-commit" in s
     assert "TAG_GENESIS_MISMATCH" in s
+    assert "PR_SOURCE_HEAD_MISMATCH" in s
+    assert "Require the exact PR source HEAD" in s
+    assert 'git diff --check "$PR_BASE" "$PR_HEAD"' in s
+    assert 'ref: ' + chr(36) + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}" in s
     assert "IMMUTABLE_RELEASE_REQUIRED" in s
     assert "RELEASE_MANIFEST_ASSET_MISMATCH" in s
-    assert 'git diff --check "$PR_BASE" HEAD' in s
+    assert "registry.verify_release_preflight" in s
+    assert "preflight-draft" in s
 
 
 def test_codeowners_has_explicit_owner_and_self_ownership():
@@ -108,6 +119,8 @@ def test_native_guard_files_are_in_next_policy_manifest():
         ".github/CODEOWNERS",
         "releases/GITHUB-VERSION-MANAGEMENT.md",
         "tests/test_gh_native_version_control.py",
+        "tests/test_release_preflight.py",
+        "registry/verify_release_preflight.py",
     }
     assert required<=RELEASE_POLICY_FILESET
     seen={line.split("  ",1)[1] for line in (ROOT/"MANIFEST.sha256").read_text().splitlines()}

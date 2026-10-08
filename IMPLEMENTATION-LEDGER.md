@@ -217,3 +217,9 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 待验的 v0.2.2 候选：仅在新草稿分支引入 GitHub 完整 SHA pinned Actions、每 PR 必跑 validate、main/tag/release 的只读完整性检查、CODEOWNERS 与官方版本操作说明、严格 GENESIS v0.2.2→保持 v0.2.1 未发布语义及对应的 52 项固定文件 Manifest。用户未再次批准准确 v0.2.2 发布 Commit，不合并、不创建新 Tag、不更新插件。GitHub repo-level sha_pinning_required **暂 false**，需待新工作流确实正式通过和运行验证后再开启，避免中断正式 v0.2.1 原工作流。
 - 此文记录的仓库设置是 GitHub 当前读回状态；平台设置是否继续生效需未来实时再读。已发布政策 v0.2.1、项目目录、业务 writer、项目源码、运行态、生产、身份和账号费用均未在本候选更新。
 - 用户下一步必要动作：保持私库，选择可支持 private branch protection/rulesets 的 GitHub 计划（个人库通常是 GitHub Pro），落实可真实审批的独立 GitHub reviewer，再配置 main/tag active 强制规则并验证。没有平台支持时 Draft PR 只给出候选而不是已发布治理授权。
+
+## 20. GitHub 原生审查第一次拒绝与最小返修（2026-10-09，未发布）
+
+- Draft PR #8 第一候选 HEAD 79727dfeb649958e2e20c9e824bd55dcdc0068ce，CI validate job 113533286075 completed/success，但独立只读 Codex gpt-5.6-sol 给出 REQUEST_CHANGES：① PR 默认签出 refs/pull/8/merge 合成合并树而非准确源 HEAD；API 的 check.head_sha 不能证明本地签出的是源 HEAD。② Immutable Release 仅 publish 后检查，没有锁定前参数化草稿附件核验。该否决保留，不以 413 tests PASS 抵消。
+- 限域返修：CI checkout 精确 github.event.pull_request.head.sha，运行时 fail-closed 断言 git rev-parse HEAD == PR_HEAD，差分也对源 HEAD。新增 registry/verify_release_preflight.py，接受唯一 repo、准确 Tag 对象和 Commit、Release draft ID、原始 Manifest SHA、每个 Release asset 的 SHA256，并核 Genesis/main；workflow_dispatch 仅将 5 个用户输入送入环境变量，绝不直接拼接进 shell；通过后在正式精确 HEAD 运行 audit-main，不自动发布。新增正负例验证。
+- 生效边界：workflow_dispatch 必须先被 GitHub default branch 采用才可实际触发；当前仅是未批准的候选，不能宣称正式平台 preflight 已部署或 main/Tag rules 强制保护已启用。任一审查阻断保留 HOLD，不合并。
