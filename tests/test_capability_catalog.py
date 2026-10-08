@@ -7,6 +7,8 @@ from pathlib import Path, PurePosixPath
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
+from registry.validate_registry import RELEASE_POLICY_FILESET
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CAPABILITIES = ROOT / "capabilities"
@@ -136,12 +138,19 @@ def test_references_stay_inside_the_static_capability_file_set():
         *(value["manifest"] for value in EXPECTED_DOMAINS.values()),
         *(value["document"] for value in EXPECTED_DOMAINS.values()),
     }
+    # Check trusted source coverage, excluding CPython-generated import caches.
+    # GitHub CI invokes pytest without disabling Python bytecode generation.
+    expected_policy_sources = {
+        name for name in RELEASE_POLICY_FILESET
+        if name.startswith("capabilities/")
+    }
     actual_files = {
         path.relative_to(ROOT).as_posix()
         for path in CAPABILITIES.rglob("*")
-        if path.is_file()
+        if path.is_file() and "__pycache__" not in path.relative_to(ROOT).parts
     }
-    assert actual_files == expected_files
+    assert expected_files <= expected_policy_sources
+    assert actual_files == expected_policy_sources
 
 
 def test_one_intent_static_load_contract_needs_only_one_domain_and_one_pack():

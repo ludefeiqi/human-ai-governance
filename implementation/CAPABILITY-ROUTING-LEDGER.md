@@ -10,7 +10,7 @@
 - 本实现应建独立分支，以 PR #6 HEAD 为父版本；在新候选上单一写入、分阶段提交并以 Git HEAD/CAS 复核。独立 reviewer 只能只读。
 - 已安装插件：`human-ai-governance-bootstrap` v0.2.0，release `pluginrel_6ac761de71488191b66468d32bcbcaa3`；不在本工程阶段更新它的来源锁、安装或权限。
 - 项目目录 `projects.yaml` 与仓库根 `AGENTS.md` 不修改；不接管 HOT、DOT/ROOT、Codex 在途任务或生产环境。
-- 唯一最新工程 NEXT：**S4 — 三场景适配（候选实现）**。任何后续阶段必须按下表关口对账。
+- 唯一最新工程 NEXT：**S3-CI-RECHECK — 修复 CI 对 Python 缓存误判并核远端结果**。任何后续阶段必须按下表关口对账。
 - 每次状态修改：先核候选分支实际远端 HEAD 与本地父系，单写提交、不强推；提交后重新 GET HEAD、文件差分与 CI。文档中的状态以**提交时可证明的事实**为准；PR 设计回执不代替用户授权。
 
 ## 1. 分阶段闭环
@@ -20,7 +20,7 @@
 | **S0 基线核对** | 核正式 Tag、PR #6、插件 release、根 AGENTS/作用域、既有测试基线 | 有精确 SHA、仓库/插件本轮实际读回，主分支未变 | **PASS**：见第0节 | S1 |
 | **S1 立账本** | 在独立候选分支记录唯一 NEXT、范围、权限、步骤和回退 | 仓库候选提交及远端 HEAD 读回、准确账本原文 | **PASS**：远端提交 `71f11ca3067505a567187ec885d747e5928f82b0` 已验证；本地 HEAD/父提交复核为 `71f11ca…` / `43d9ce7…` | S2 |
 | **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | **PASS**：远端提交 `7174c9235ab2e6e3c2724a4a1a42a38bbe5e7487` 已读回；本轮入口核对的本地 HEAD 精确相同且初始 worktree clean；见第5节 | S3 |
-| **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | **PASS（LOCAL）**：见第6节；未提交、未做远端 CI/独立复核/安装/真实运行 | S4 |
+| **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | **HOLD（REMOTE_CI）**：本地 298/298 通过；远端首次 297/298（缓存误判），精确修复待重新核验；见第7节 | S4 |
 | **S4 三场景适配** | `project.restore`、`codex.observe`、`tool.route` 三个 R0 能力包，保留能力与工具两级选型 | 用户意图映射可复现；运行时只报告当次能力；不存在真实派工或写入 | TODO | S5 |
 | **S5 验收与性能** | 10/100/1000 合成规模，恶意输入、拒绝/降级/超时/UNKNOWN、状态一致性测试 | 记录目录读取次数、字节、所选正文数及耗时；无关能力规模扩大不引发正文全量加载；全 pytest、Manifest、diff 检查 | TODO | S6 |
 | **S6 插件入口候选** | 更新**候选源码**的短入口/能力目录指引、预置能力卡与当前正式政策来源边界 | 持续锁旧已发布政策，不能从本候选暗中启用新路由；旧插件身份与文件保留；测试合格 | TODO | S7 |
@@ -102,3 +102,12 @@
 ### 6.3 未覆盖与停止边界
 
 本地 PASS 只覆盖静态候选代码、合成 `tmp_path` 文件和本地完整固定集合。没有执行网络、真实外部 MCP、Codex 业务任务、业务仓库读写、插件安装、Git commit/push/PR、远端 CI、独立外审、正式 main/Tag、客户端冷启动或业务验收；未验证项不得从本地链验证推导。S4–S9 未提前标 PASS，S8/S9 继续 HOLD。本轮在 S3 完成和本地证据读回后停止，不自动开始 S4。
+
+## 7. S3 远端 CI 差异与精确纠正（2026-10-09）
+
+- 原 S3 Commit：4f0874be27a71a2a6588da595516e5c2d9a469ed，已远端读回。
+- 实际 GitHub Actions 37809698471 / check 113423035540：297 passed、1 failed。失败项 tests/test_capability_catalog.py::test_references_stay_inside_the_static_capability_file_set 将正常生成的 capabilities/__pycache__/router.cpython-312.pyc 当作额外政策源码；本地此前用 PYTHONDONTWRITEBYTECODE=1 掩盖了差异。
+- 已停止 S4 施工；局部未提交 S4 候选源码封存于本机隔离 git stash；不触发业务副作用。
+- 最小修补：依 RELEASE_POLICY_FILESET 比对能力目录中的源码集合，只忽略 __pycache__ 下自动生成的 Python 缓存；未登记源码文件仍应阻断。
+- 再验要求：不禁用 Python 字节码，完整 pytest/Manifest/保护文件核验，推送准确修补 Commit，核 GitHub 新 CI success。远端原失败回执不抹除。
+- 当前状态 LOCAL_FIX_PREPARED / REMOTE_CI_PENDING。仅远端通过后允许 NEXT 恢复 S4。
