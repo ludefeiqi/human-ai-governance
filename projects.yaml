@@ -19,7 +19,12 @@ projects:
     dispatch_enabled: false
     writer_source: current_project_ledger_only
     latest_project_head: read_remote_at_use_time
-    registry_status: active
+    lifecycle: active
+    registration: verified
+    identity:
+      canonical_id: hot-auth-bbs
+      identity_hash: sha256:6de1c66d2905c57b5558f413031c6d12bf516484912686573b075227d8e124b0
+    lifecycle_history: []
     registration_provenance:
       kind: carried_from_v0.1.0
       policy_commit: 8f1f2677b20b6d19f6f887e0a7cce6081fa164b4

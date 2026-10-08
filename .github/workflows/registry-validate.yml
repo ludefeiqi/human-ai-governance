@@ -1,0 +1,37 @@
+name: P2 Registry Candidate Verification
+on:
+  pull_request:
+    paths:
+      - "registry/**"
+      - "tests/**"
+      - "projects.yaml"
+      - "MANIFEST.sha256"
+      - "requirements-registry.lock"
+      - ".github/workflows/registry-validate.yml"
+      - "*.md"
+  push:
+    branches:
+      - "drafts/p2-controlled-registry-v020-20261008"
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements-registry.lock
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements-registry.lock
+      - name: Reproduce regression tests
+        run: python -m pytest -q
+      - name: Validate fixed-policy manifest and genesis registry
+        run: python -m registry.validate_registry --root . validate-local
+      - name: Reject whitespace errors
+        run: git diff --check HEAD^ HEAD

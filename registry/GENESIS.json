@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG",
+  "governance_repository": "ludefeiqi/human-ai-governance",
+  "immutable_owner_account": "ludefeiqi",
+  "release_tag": "v0.2.0",
+  "release_commit_source": "dereferenced_annotated_tag",
+  "registry_branch": "main",
+  "registry_path": "projects.yaml",
+  "initial_index_sha256": "789d48e19f6643cf48aff333408b580d8ec0476dcab4fbae02cddb1ce5249c98",
+  "initial_project_identity_hashes": {
+    "hot-auth-bbs": "sha256:6de1c66d2905c57b5558f413031c6d12bf516484912686573b075227d8e124b0"
+  },
+  "approval_comment_marker": "HAGOV-REGISTRY-OWNER-APPROVAL-V1",
+  "unreleased_behavior": "HOLD_V0_1_SEMANTICS"
+}

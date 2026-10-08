@@ -75,4 +75,8 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 
 — proposed Section 8: Cross-window dynamic discovery
 
-At every explicit new-window cold start: pin policy → read registry branch HEAD → inspect exact index blob → validate policy ancestry/change approvals → enumerate all verified active entries → read each project's live HEAD/AGENTS/ledger → recheck registry HEAD → separate DECLARED from INFERRED and each action's actual authorization. If one project is blocked, complete the others; report `registry_total`, `verified`, `provisional`, `blocked`, `paused`, `retired` and exact coverage. If HEAD changes mid-read, bounded retry once; persistent drift → HOLD for registry snapshot, never combine states. Both windows remain R0 observers and cannot claim writer identity merely because they discover the same project.
+每次明确的冷启动按固定顺序：解引用并验证 v0.2.0 annotated Tag/Manifest/GENESIS → 固定 `main` H1 → 严格读取 H1 的 index raw bytes → 从正式 genesis commit 沿 first-parent 核全部 index 变更和 pre/post 审批 → 只对 externally verified 且 active、并有现行读取授权的条目核项目 branch HEAD、AGENTS、ledger 与固定合同 Git mode → 再读 `main` H2。H1≠H2 时只可从头重做一次；再次漂移则整个快照 `HOLD`，不得拼接两代数据。
+
+registration unverified 项目不深扫私库；403/404/symlink/来源缺失只阻断该项目，继续其它已授权 R0 项目。报告必须分别给出 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每个维度合计 `registry_total`。项目账本实际 NEXT 单列 `DECLARED`；协调者建议单列 `INFERRED governance recommendation`；未读到就是 UNKNOWN。
+
+两个窗口即使得到相同索引也仍是 R0 observers。发现、`thread/list/read` 或 includeTurns=false 不产生 writer；`thread/resume` 会恢复执行上下文，不是本流程的只读查询。索引不得自动 adopted、dispatch 或 writer handoff；任何接管仍须项目自身权威流程与用户准确授权。

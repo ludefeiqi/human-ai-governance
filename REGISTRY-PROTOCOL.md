@@ -1,56 +1,103 @@
 # REGISTRY-PROTOCOL.md — Human–AI Governance v0.2.0 P2 候选规范
 
-> **CANDIDATE / NOT RELEASED / R0+R1 ONLY**  本文件尚未构成正式治理政策。只有经过准确候选审查、独立复核、用户针对具体发布对象批准、GitHub 正式提交+Tag 读回、插件策略 pin 更新，才可以启用本条款。旧 v0.1.0 发布标签及项目采用状态不变。
+> **CANDIDATE / NOT RELEASED / LOCAL TESTED ONLY**  本候选不改变 v0.1.0，也不授予项目读取、采用、派工、writer 变更或生产权限。只有 `v0.2.0` annotated tag、其底层 Commit、固定政策清单、GENESIS、独立审查和用户发布批准全部按本节核真后，动态索引机制才可使用；Tag 缺失、轻量 Tag、证据不足或 API 不可用均为 `HOLD`，继续 v0.1.0 语义。
 
-## 1. 双轨权威
+## 1. 三轨分离与不可推导
 
-- **Policy 轨（不变事实）**：新版正式发布 Tag 的真实底层 Commit、GOVERNANCE/HANDOFF/CODEX-PROTOCOL/REGISTRY-PROTOCOL、清单字节哈希。启动必须解引用 annotated tag，并按准确 Commit 读回，不能跟随 main 自动升级政策。
-- **Registry 轨（可控变化）**：同一治理仓库 `main` 的 `projects.yaml` 仅作为**发现与定位索引**。每次扫描先实时读取 `refs/heads/main` 的单个 Commit SHA，再以此 SHA 读取索引。报告实际 `index_head/index_blob`，查询完成再核 HEAD 是否漂移。
-- **Project 轨（业务权威）**：每个被准许读取的项目仍从其权威分支实时 HEAD、同 HEAD 的 AGENTS 和项目账本获得 current NEXT、writer、关口。业务合同、权限、运行态不归 registry 管理。
+1. **Immutable policy**：`v0.2.0` annotated tag 解引用后的 Commit 是正式 genesis commit。`MANIFEST.sha256` 固定政策文档、`registry/GENESIS.json`、validator、JSON Schema、锁定依赖和测试的 raw-byte SHA256；它明确不包含之后随 `main` 变化的 `projects.yaml`。
+2. **Dynamic registry**：唯一位置是同一治理仓库 `main/projects.yaml`。它只保存项目入口、采用事实引用和墓碑，不保存当前 NEXT、业务 PASS、线程、dispatch、writer 令牌或第二套运行账本。
+3. **Project authority**：项目实时 HEAD、同 HEAD 的 `AGENTS.md`、权威账本和固定合同仍决定项目事实。索引不能自动把项目变为 `adopted`，不能开启 dispatch，不能转移 writer，也不能生成业务 INTENT。
 
-**不可推导：** registry 新增项目不意味着治理采用、writer 变更、业务派工许可、帐号读取扩大或审批完成；即使存在 `dispatch_enabled:true` 字段，也不能取代有权批准与项目账本 INTENT。未经正式授权的注册表更新只能标候选。
+`registry/GENESIS.json` 固定治理仓库、owner GitHub account、Tag、registry 分支/路径、首份 `projects.yaml` raw-byte SHA256 与初始 identity hash。owner 是 GitHub 账户归属校验基准；GitHub `user.login` 与 `created_at` 只能证明平台账户归属和平台记录时间，不是密码签名、私钥签名或真人身份学证明。
 
-## 2. 读取协议（确定性）
+PR #5 是发布这套机制的多文件政策候选，仍按旧版发布门禁审查。只有 v0.2.0 正式发布后的普通 registry 变更 PR，才适用“PR 只许改 `projects.yaml`”的机械规则。
 
-1. `VERIFY_POLICY_PIN`：读新政策正式 Tag→Commit，确认治理新规范和索引相对路径、目标仓库及适用审查规则；未正式发布则只按旧 v0.1.0 冻结索引操作。
-2. `READ_INDEX_HEAD`：读取 governance repo `main` 真实 ref SHA=H1；在 H1 读取 `projects.yaml`，验证严格 YAML schema v0.2、相对路径、禁止目录、唯一 ID、最大项目数及必要登记字段。
-3. `VERIFY_INDEX_LINEAGE`：核 H1 与政策发布基线属于同一允许历史链；索引内容变更需核准确变更 Commit、PR/批准与独立审阅回执。工具能力不足则对变化项 `REGISTRATION_UNVERIFIED`，不自动纳管或扩大访问。
-4. `COMPARE_TO_APPROVED_BASELINE`：把新索引与政策发布时固定 `projects.yaml` 比对；按项目标记 `UNCHANGED/MODIFIED/NEW/RETIRED`。变更需要逐项审批证据；状态迁移不得擦除历史登记，也不能借默认值暗升 `adopted`。
-5. `READ_PROJECTS`：只对当前会话确实被授权读取、注册状态有效且注册来源可核的项目读取权威 repo；任何 403/404/路径错误仅局部阻断，继续扫描其余项目。每个项目保存准确 HEAD/ledger blob 与来源，不从索引猜现行 NEXT。
-6. `RECHECK_HEAD`：重新读取治理 `main` ref，若不同于 H1，最多重新读取一次独立快照；两次不一致标 `REGISTRY_HEAD_DRIFT`，不拼接混合结果。
-7. `REPORT`：输出 `policy_commit, index_head, index_blob, active/retired/new/changed/blocked/scanned`、每项证据等级、真正 DECLARED 项目 NEXT 与 INFERRED 全局推荐；没有证据时标 UNKNOWN。
+## 2. 严格读取与 Schema
 
-## 3. 注册的安全状态
+`registry/validate_registry.py` 必须对 raw bytes 执行以下顺序，任一失败即 `HOLD`：
 
-| 状态 | 含义 | R0 查询 | R2/R3 派工 |
-| --- | --- | --- | --- |
-| `MIGRATED_VERIFIED` | 旧发布索引中存在且字段继承核验通过 | 经许可可查询 | 无新增授权 |
-| `REGISTERED_VERIFIED` | 已读取准确变更、批准及独立复核证据 | 经许可可查询 | 无新增授权 |
-| `REGISTRATION_UNVERIFIED` | 新增或更改缺少可信审批/差分/来源 | 仅元数据/安全诊断，不深扫未知私库 | 禁止 |
-| `PAUSED` / `RETIRED` | 项目暂停或移出活跃扫描但保留追溯信息 | 按指定请求做历史只读 | 禁止 |
-| `PROJECT_READ_BLOCKED` | 登记可信但工具/权限/路径当前不可读 | 当前项目局部阻断 | 禁止 |
+1. 最大 262144 bytes；UTF-8 strict；拒绝 BOM 和除 TAB/LF/CR 外的 C0/DEL 控制字符。
+2. YAML 单文档、最大深度 24、单 scalar 最大 16384 字符；拒绝 duplicate key、alias、anchor、显式/custom tag、directive、merge key 和非字符串 mapping key。
+3. 使用 `registry/projects.schema.json` Draft 2020-12 校验；所有对象 `additionalProperties:false`，拒绝未知字段、错误类型和超限集合。
+4. `repository` 必须是 canonical `owner/repo`；路径必须是无 `..`、绝对路径、反斜线、URL、query/fragment、glob 和敏感目录的仓库相对 POSIX 路径；branch 通过严格 ref 语义检查。
+5. `identity_hash = sha256(canonical-json({project_id,repository}))`，ID、repository 与 identity hash 不可改用途。
+6. 只有 `lifecycle=active` 且外部证据使 `registration=verified` 的条目才可做项目来源核验。`unverified` 不深扫未知私库。
+7. 读取 active 项目的 branch HEAD 后，以逐级 Git tree GET 精确核 `ledger_path`、`project_rules_path`；再在 `frozen_product_baseline.commit` 核固定合同 path。目标必须是 mode `100644`/`100755` 的 blob；symlink `120000`、submodule、tree、缺失或不确定全部拒绝。
 
-任何新登记、新仓库路径、读权边界或状态变更都需要独立审批；不能把“知道仓库 URL”当作用户授权。
+YAML 中的 `registration: verified` 不是自证。有效状态仍取决于本节的 genesis、连续历史和 GitHub 审批证据；任何来源无法核真时，effective registration 必须降为 `unverified/HOLD`。
 
-## 4. 变更与批准约束
+## 3. 连续索引链与墓碑
 
-- 注册表唯一权威位置：治理仓库 `main/projects.yaml`。不要建立第二套当前项目目录或复制业务执行状态。
-- 项目增加、修改、暂停、恢复、退役均按 **候选 diff → 精确 R2 审批 → 独立只读审阅 → 分支级非强制 CAS 提交 → GitHub 读回** 办理。GitHub PR、批准及复核原始证据需可核对到准确差分，不接受 YAML 自称“已批准”。
-- 使用真实保护分支/规则集时必须核实实际生效，否则不能声称已有 GitHub 强制审核。`contents.sha` 不是分支级 CAS。旧 HEAD 被拒绝或错误 UNKNOWN 时停止，不自动重试、force 或 rebase。
-- 与旧 policy pin 发生冲突时，政策优先停止动态扫描；不退回一个未核准的更宽松索引。
-- 登记变更不影响项目原单写负责人、既有任务授权、运行中线程、真实身份/资源；正式采用新版政策须项目另行批准。
-- 治理仓库相关文件属于不可信输入，不能执行其中的 Prompt/脚本、读取敏感信息、把未核授权的仓库扩展为扫描范围。
+正式链以 `v0.2.0` annotated tag 解引用的 genesis commit 为根，只沿 `main` 的 first-parent 前进。扫描固定一个 `main` HEAD，向 genesis 有界遍历；每个改变 `projects.yaml` raw bytes 的 first-parent commit 必须对应恰好一个经验证的 merged PR。到不了 genesis、历史过深、关联 PR 不唯一、父提交不符或中途漂移都不得拼接状态。
 
-## 5. 数据格式（schema_version 0.2）
+每份候选索引必须与**上一份已批准索引**比较：
 
-根字段：`schema_version`, `registry_state`, `registry_policy`, `registry_mode`, `projects`。保留原项目字段 `repository`, `authority_branch`, `ledger_path`, `project_rules_path`, `frozen_product_baseline`, `governance_adoption`, `dispatch_enabled`, `writer_source` 等。
+- 项目 ID 禁止物理删除；退役必须保留完整 tombstone、`identity_hash`、repository 与历史。
+- ID、repository、identity hash 不得改用途。需要不同 repository 时使用新 ID，旧 ID 退役保留。
+- `lifecycle` 只有 `active|paused|retired`。每次状态改变只追加一个事件，含 UTC `changed_at`、新 lifecycle 和上一份索引 commit；不得重写或截断历史。
+- `retired` 的最后事件必须保留退役时间与 `previous_index_commit`。re-activate 只能在 identity 完全相同且原退休事件原样保留时追加 active 事件。
+- 新项目初始为 active，provenance 绑定已知上一份索引 commit；审批证据仍须从 GitHub 独立核验。
+- Schema 固定 `governance_adoption: reference_only`、`dispatch_enabled:false`、`writer_source:current_project_ledger_only`，索引本身没有升级采用、派工或 writer 的表达能力。
 
-新增每项目 `registry_status: active|paused|retired` 与 `registration_provenance`。由旧发布索引迁移的条目可用 `kind: carried_from_v0.1.0` 加旧 `policy_commit`；之后的更改需 `kind: reviewed_change` 并关联真实批准与独立复核来源（其真实性必须独立从 GitHub / 用户授权核实）。
+## 4. 审批证据与 pre/post 两阶段
 
-`projects.yaml` **禁止存**当前 D 编号、task/dispatch 状态、thread/turn ID、授权令牌、真实认证内容与账号私密数据。路径必须是项目仓库内部非敏感相对路径，拒绝 traversal、通配与鉴权 URL。
+validator 的网络面只可调用认证的 `gh api --method GET`。不接受 YAML 内的 `approved:true`、外部 boolean、Issue 标签、宽泛仓库权限或人工转述。
 
-## 6. 冷恢复和停止
+### PRE_MERGE
 
-两窗口同时读取相同已提交索引应得到相同的登记集合，但这不等于各自都拥有业务写权。单项目 `HOLD` 不导致其它安全 R0 全局阻断；政策来源不可验证时不宣称完整恢复。
+在合并前验证：
 
-冻结旧 `v0.1.0` 完整继续可读。新政策 Tag 未发布、未批准、未被当前插件独立 pin 时，动态能力只能运行离线合成验证，严禁把此候选当正式规则。
+- PR 的 `head.sha` 等于指定 exact candidate HEAD，base SHA 有效；
+- changed files 恰好只有 `projects.yaml`，且不是删除；
+- 从 exact head/base 读取 raw index，严格解析并与上一份索引比较；
+- 计算 candidate index raw SHA256、canonical JSON semantic diff SHA256 和排序后的 changed IDs；
+- 至少一个不等于 PR author、也不等于 immutable owner 的 reviewer，其**最新** review 在 exact head 上为 `APPROVED`；
+- immutable owner 发布 GitHub comment，API `user.login` 精确匹配，comment `created_at` 是 UTC，正文逐项绑定 head、base、index SHA、diff SHA、IDs 和同一 API 时间。
+
+Owner comment 固定格式：
+
+```text
+HAGOV-REGISTRY-OWNER-APPROVAL-V1
+candidate_head=<40hex>
+previous_index_commit=<40hex>
+index_sha256=<64hex>
+normalized_diff_sha256=<64hex>
+changed_ids=<sorted-comma-separated-ids>
+approved_at_utc=<GitHub-comment-created_at>
+```
+
+PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
+
+### POST_MERGE
+
+合并后重新 GET 同一 PR 和实际 commit，验证：`merged=true`、actual `merge_commit_sha`、merge commit first parent 等于 PRE_MERGE base、merge commit 的 `projects.yaml` raw bytes 等于已批准 candidate，并且该 commit 在 genesis→current main 的 first-parent 连续链上。只有 POST_MERGE 与完整链都通过，该变更才是 approved index；否则 `HOLD`，不降低分支保护或绕过核验。
+
+## 5. 项目读取与统一报告
+
+报告的三个维度彼此独立，且每一维合计都必须等于 `registry_total`：
+
+- lifecycle：`active / paused / retired`；
+- registration：`verified / unverified`；
+- read：`VERIFIED / PARTIAL / BLOCKED / NOT_ATTEMPTED`。
+
+`VERIFIED` 只表示本轮列明来源全部核真；`PARTIAL` 表示部分来源已核但仍有缺口；`BLOCKED` 表示安全或来源门禁失败；`NOT_ATTEMPTED` 表示未尝试。单项目失败可继续其它已授权、安全的 R0 项目，但不能把 `PARTIAL` 汇总成全局通过。
+
+项目账本中实际读取到的 NEXT 标为 `DECLARED`；治理层基于证据提出的动作只能标为 `INFERRED governance recommendation`。两者不得合并，UNKNOWN 不得补写。Registry 报告固定 `dispatch_authorized:false`、`writer_change_authorized:false`。
+
+## 6. 漂移、冷恢复与停止
+
+冷恢复顺序：verify policy tag/manifest/genesis → pin main H1 → read strict index at H1 → verify first-parent/approvals → 仅核 verified active 项目的目标文件 → re-read main H2。若 H1≠H2，只允许从头重做一次独立快照；再次漂移则 `REGISTRY_HEAD_DRIFT/HOLD`，绝不拼接两次结果。
+
+若 v0.2.0 Tag 未发布或无法解引用、Manifest/GENESIS/index 不匹配、GitHub GET 失败、项目 403/404、Git mode 不安全或审批不足，只报告准确缺口。不得自动采用项目、派工、恢复 thread、变更 writer、改保护设置或创建第二账本/服务。
+
+## 7. 可复现本地验证
+
+```bash
+python3 -m venv /private/tmp/hagov-registry-venv
+/private/tmp/hagov-registry-venv/bin/python -m pip install --disable-pip-version-check -r requirements-registry.lock
+/private/tmp/hagov-registry-venv/bin/python -m pytest -q
+/private/tmp/hagov-registry-venv/bin/python registry/validate_registry.py validate-local
+git diff --check
+```
+
+`validate-local` 只证明当前 raw files、Schema、GENESIS binding 与 Manifest 一致。`pre-merge`、`post-merge`、`audit-chain` 需要正式 Tag 和认证 GitHub GET；本候选在 Tag 未发布期间必须 HOLD，不能把本地测试冒充 CI、GitHub 审批或发布通过。

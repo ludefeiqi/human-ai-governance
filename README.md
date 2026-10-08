@@ -12,7 +12,7 @@ This private repository holds the shared protocol for coordinating people, ChatG
 - [projects.yaml](projects.yaml) — **entry index only**, no business task/NEXT replication
 - [AGENTS.md](AGENTS.md) — instructions for Codex *inside this governance repository*, not other projects
 - [REVIEW-CHECKLIST.md](REVIEW-CHECKLIST.md) — review scenarios and versioned change gates
-- [MANIFEST.sha256](MANIFEST.sha256) — SHA256 of the seven published root source files, including this README
+- [MANIFEST.sha256](MANIFEST.sha256) — raw-byte SHA256 list for the immutable policy candidate (policy, GENESIS, validator, Schema, locked dependencies and tests); dynamic `projects.yaml` is deliberately excluded
 
 The exact first-reviewed candidate is preserved under [drafts/v0.1/](drafts/v0.1/), with the separate manifest and historical draft wording. Independent first review and corrected design approval: [PR #2](https://github.com/ludefeiqi/human-ai-governance/pull/2). The final root promotion requires an independent review of its own accurate diff. Release authorization is recorded separately under `releases/v0.1.0/`.
 
@@ -28,6 +28,24 @@ Exact candidate + manifest -> independent read-only review -> explicit user appr
 
 ## P2 Controlled Dynamic Registry · v0.2.0 candidate
 
-proposed additions
+This branch is a re-review candidate, not an active release. It adds:
 
-Document the new policy tag, exact immutable release Commit, separate `main/projects.yaml` dynamic registry snapshot checks and per-project admission evidence. Add negative tests for unreviewed entries, changed project repo, drift, 403 partial, duplicate YAML keys, path traversal, inactive tombstones, and two-window concurrent cold start. Release must include an independent review of complete exact diff, manifest raw-byte hash, explicit user approval and published activation receipt; otherwise retain v0.1.0 semantics.
+- deterministic strict YAML + JSON Schema validation in `registry/`;
+- immutable `registry/GENESIS.json` binding owner, release route, initial identities and the initial index raw SHA256;
+- a first-parent, no-delete tombstone chain with exact pre/post GitHub GET evidence;
+- separate lifecycle, registration and read-result accounting;
+- synthetic positive/negative pytest coverage and pinned dependencies.
+
+The immutable policy Manifest excludes the future dynamic `main/projects.yaml`; genesis binds the first index, while every later index is approved against its immediately preceding approved commit. Post-release registry PRs may change only `projects.yaml`. This PR #5 is the multi-file bootstrap policy candidate and remains governed by the release review gate.
+
+Exact local commands:
+
+```bash
+python3 -m venv /private/tmp/hagov-registry-venv
+/private/tmp/hagov-registry-venv/bin/python -m pip install --disable-pip-version-check -r requirements-registry.lock
+/private/tmp/hagov-registry-venv/bin/python -m pytest -q
+/private/tmp/hagov-registry-venv/bin/python registry/validate_registry.py validate-local
+git diff --check
+```
+
+Local success is not CI, GitHub review, owner approval, merge, Tag publication, project adoption or business acceptance. Until the annotated `v0.2.0` Tag and all bound evidence exist, retain v0.1.0 semantics and HOLD dynamic discovery.

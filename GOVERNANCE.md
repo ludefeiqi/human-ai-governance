@@ -81,8 +81,12 @@
 
 ## P2 Controlled Dynamic Registry · v0.2.0 candidate
 
-— proposed Section 10: Controlled dynamic registry
+— proposed Section 10: Controlled dynamic discovery registry
 
-After a new v0.2.0 policy release is explicitly approved, global discovery may use `main/projects.yaml` from the **same governance repository** as a controlled dynamic *discovery-only* index. The policy tag itself remains pinned to an immutable Commit. The new version MUST explicitly include and hash `REGISTRY-PROTOCOL.md`, which controls source verification, approval validation, drift detection, and per-project quarantine. An unreviewed index change never grants project adoption or authorization. Every new/changed entry needs proof tied to the actual index diff and approved merge. Project current state and unique writer remain exclusively in the project authority ledger. P1/previous tags do not automatically adopt the new registry semantics.
+v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immutable GENESIS、完整独立审查和用户发布批准都被读回后，才可启用 `main/projects.yaml` 的动态发现语义。Tag 未发布、轻量 Tag、清单或 GENESIS 不符时保持 v0.1.0；不得因 main 出现新文件而自动升级。政策 Manifest 固定政策文档、GENESIS、validator、Schema、锁定依赖和测试，不包含以后变化的 `projects.yaml`；GENESIS 则固定初始 index raw SHA256、owner account、仓库、Tag、branch、path 和初始 identity hashes。
 
-If a registry entry conflicts with baseline registration, if source commit lineage is not validated, or if review evidence is missing, the controller retains legacy authorized entries with independently verified status and marks only the changed scope `REGISTRATION_UNVERIFIED`; it must NOT silently accept newer main as policy authority. Registry changes are R2; only approved governance registry maintainer can submit them with branch-level CAS. No user authorization may be inferred solely from push permission.
+动态索引唯一作用是 discovery。Schema 机械固定 `governance_adoption: reference_only`、`dispatch_enabled:false` 和 `writer_source:current_project_ledger_only`；登记不能自动 adopted、派工、创建 INTENT、恢复 thread、改变 writer 或覆盖项目权威账本。`projects.yaml` 中的 verified/approved 字样不是外部证据。
+
+正式索引历史以 release genesis commit 为根沿 `main` first-parent 连续验证。每个 index 变化与上一份 approved index 比较：ID 不得物理删除或改用途；repository/identity hash 不得替换；retired 保留 tombstone、identity、退役时间、上一索引 commit 和追加历史；同身份 re-activate 只可追加事件。每个发布后 registry PR 只许改变 `projects.yaml`，并须通过 exact-head 独立 APPROVED review、owner GitHub comment 的 head/index/diff/IDs/time 绑定，以及合并后 actual merge commit/first-parent/raw index 再核。合并前不得预言 merge SHA；证据不足一律 HOLD，不降低保护。
+
+读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以本候选的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。

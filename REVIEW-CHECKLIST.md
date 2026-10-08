@@ -72,6 +72,19 @@ project_adoptions: []
 
 ## P2 Controlled Dynamic Registry · v0.2.0 candidate
 
-proposed additions
+本轮复审须在 exact candidate HEAD 上逐项确认：
 
-Document the new policy tag, exact immutable release Commit, separate `main/projects.yaml` dynamic registry snapshot checks and per-project admission evidence. Add negative tests for unreviewed entries, changed project repo, drift, 403 partial, duplicate YAML keys, path traversal, inactive tombstones, and two-window concurrent cold start. Release must include an independent review of complete exact diff, manifest raw-byte hash, explicit user approval and published activation receipt; otherwise retain v0.1.0 semantics.
+1. `AGENTS.md` raw bytes 未改变，变更仅覆盖用户授权的政策/registry validator/Schema/GENESIS/tests/locked dependencies/manifest 范围。
+2. `MANIFEST.sha256` 对实际 raw bytes 全部匹配，包含政策、GENESIS、validator、Schema、锁定依赖和全部测试；不包含动态 `projects.yaml`。
+3. `GENESIS.json` 固定 repository、immutable owner account、annotated release Tag、main/index path、首份 index raw SHA256 与全部初始 identity hash；当前 Tag 未发布时 validator 必须 HOLD。
+4. 严格读取拒绝 duplicate key、alias、anchor、tag/directive、merge key、非字符串 key、非法 UTF-8、BOM、控制字符、超大、超深、未知字段、错误 owner/repo、路径/ref 和身份 hash。
+5. active HEAD 的 ledger/rules 与固定 contract commit 的 path 都按逐级 Git tree mode 核验；`120000` symlink、submodule、tree、缺失或来源不可核不得通过。
+6. first-parent 链从正式 genesis commit 到目标 main HEAD 连续；每个 index 变化都与上一 approved index 比较。物理删除、ID/repository/hash 改用途、历史截断、无 base binding 的状态变化全部拒绝。
+7. retired tombstone 保留 identity、退役 UTC 时间与 previous index commit；同 identity re-activate 保留全部退休历史并只追加 active 事件。
+8. 发布后 registry PR changed files 必须恰好为 `projects.yaml`。PRE_MERGE 绑定 exact head/base/raw index/diff/IDs、独立 reviewer 最新 APPROVED 与 immutable owner GitHub comment/time；POST_MERGE 另核 actual merge commit、first parent 和 merged raw index。PR #5 本身是多文件机制发布候选，不冒充普通 registry update。
+9. YAML 自述批准、外部 boolean、push 权限、GitHub account attribution 均不冒充密码/私钥签名或完整授权；任一证据不足为 HOLD。
+10. lifecycle、registration、read 三维分别合计 `registry_total`；DECLARED project NEXT 与 INFERRED governance recommendation 分开；不自动 adopted/dispatch/writer change。
+11. registration unverified 不深扫未知私库；单项目读取失败可保持局部 BLOCKED/PARTIAL，但不得汇总成全局 VERIFIED。
+12. 使用锁定依赖运行不少于 50 个 collected pytest items、`validate-local` 与 `git diff --check`；记录实际退出码。未实际触发的 CI、GitHub 审批、merge、Tag、远端私库读取和业务验收必须列为未证明。
+
+精确本地命令见 `README.md` / `REGISTRY-PROTOCOL.md`。审查者不得把本地 0 exit code 写成 PR 已批准、CI 已通过或 v0.2.0 已发布。
