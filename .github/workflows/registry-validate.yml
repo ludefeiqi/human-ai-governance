@@ -9,9 +9,6 @@ on:
       - "requirements-registry.lock"
       - ".github/workflows/registry-validate.yml"
       - "*.md"
-  push:
-    branches:
-      - "drafts/p2-controlled-registry-v020-20261008"
 permissions:
   contents: read
 jobs:
@@ -21,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 2
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
