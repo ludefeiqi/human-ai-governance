@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "registry/**"
+      - "clients/**"
       - "tests/**"
       - "projects.yaml"
       - "MANIFEST.sha256"

@@ -25,6 +25,8 @@ from jsonschema import Draft202012Validator, FormatChecker
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 from yaml.tokens import AliasToken, AnchorToken, DirectiveToken, TagToken
 
+from registry.validate_capabilities import CapabilityError, validate_capability_directory
+
 
 MAX_INDEX_BYTES = 256 * 1024
 MAX_YAML_DEPTH = 24
@@ -61,8 +63,39 @@ FIXED_POLICY_TEST_FILES = {
     "tests/test_single_owner_approval.py",
     "tests/test_strict_reader.py",
     "tests/test_transitions_and_manifest.py",
+    "tests/test_capability_catalog.py",
+    "tests/test_capability_routing.py",
+    "tests/test_tool_adapters.py",
+    "tests/test_route_scaling.py",
 }
-RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES
+OPTIMIZATION_POLICY_FILES = {
+    'CLIENT-CONTRACT.md',
+    'RULE-MAP.md',
+    'clients/build_plugin_overlay.py',
+    'clients/chatgpt-plugin/README.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/SKILL.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/acceptance-suite.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/discovery-protocol.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/execution-closure.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/failure-contract.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/ledger-adapters.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/recovery-protocol.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/role-contract.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/runtime-adapter.md',
+    'clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md',
+    'clients/plugin-update.json',
+    'tests/test_historical_approval.py',
+    'tests/test_rule_contracts.py',
+    'registry/capabilities/capability-card.schema.json',
+    'registry/capabilities/codex.observe.json',
+    'registry/capabilities/project.restore.json',
+    'registry/capabilities/tool.route.json',
+    'registry/validate_capabilities.py',
+    'registry/route_capabilities.py',
+    'registry/route_tool_adapters.py',
+    'registry/benchmark_route_scaling.py',
+}
+RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES | OPTIMIZATION_POLICY_FILES
 
 
 class RegistryError(Exception):
@@ -354,8 +387,8 @@ def load_genesis(path: Path) -> dict[str, Any]:
         raise RegistryError("GENESIS_OWNER_INVALID", "immutable owner account is invalid")
     if value["governance_repository"].split("/", 1)[0] != value["immutable_owner_account"]:
         raise RegistryError("GENESIS_OWNER_INVALID", "immutable owner must own the governance repository")
-    if value["release_tag"] != "v0.2.0":
-        raise RegistryError("GENESIS_TAG_INVALID", "genesis release tag must be v0.2.0")
+    if value["release_tag"] not in {"v0.2.0", "v0.2.1"}:
+        raise RegistryError("GENESIS_TAG_INVALID", "unsupported exact release tag")
     if value["registry_path"] != "projects.yaml" or value["registry_branch"] != "main":
         raise RegistryError("GENESIS_REGISTRY_INVALID", "genesis registry target is invalid")
     if not SHA256_RE.fullmatch(value["initial_index_sha256"]):
@@ -368,8 +401,16 @@ def load_genesis(path: Path) -> dict[str, Any]:
         "EXTERNAL_GITHUB_REVIEW", "SINGLE_OWNER_AI_R0_ATTESTED",
     }:
         raise RegistryError("GENESIS_APPROVAL_MODE_INVALID", "registry approval mode is not recognized")
-    if value["unreleased_behavior"] != "HOLD_V0_1_SEMANTICS":
-        raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior is invalid")
+    # The tagged policy may only take effect after explicit verification and
+    # adoption. A v0.2.1 candidate never silently reverts to v0.1.0 semantics:
+    # keep the separately verified, already-adopted v0.2.0 release unchanged.
+    # Retain v0.2.0's original genesis for historical replay.
+    expected_unreleased = {
+        "v0.2.0": "HOLD_V0_1_SEMANTICS",
+        "v0.2.1": "HOLD_V0_2_0_SEMANTICS",
+    }[value["release_tag"]]
+    if value["unreleased_behavior"] != expected_unreleased:
+        raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior disagrees with the exact policy tag")
     identities = value["initial_project_identity_hashes"]
     if not isinstance(identities, dict) or not identities:
         raise RegistryError("GENESIS_IDENTITIES_INVALID", "initial identities must be a non-empty object")
@@ -485,13 +526,13 @@ def _content_bytes(api: Api, repository: str, path: str, ref: str) -> tuple[byte
 
 def resolve_release_commit(api: Api, genesis: Mapping[str, Any]) -> str:
     if genesis["status"] != "ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG":
-        raise RegistryError("V0_2_UNPUBLISHED", "v0.2.0 genesis is not active; retain v0.1.0 semantics")
+        raise RegistryError("V0_2_UNPUBLISHED", "genesis not active; retain previously adopted policy")
     repository = genesis["governance_repository"]
     tag_name = genesis["release_tag"]
     ref = api.get(_repo_endpoint(repository, f"git/ref/tags/{urllib.parse.quote(tag_name, safe='')}"))
     obj = ref.get("object", {})
     if obj.get("type") != "tag":
-        raise RegistryError("RELEASE_TAG_NOT_ANNOTATED", "v0.2.0 must be an annotated tag")
+        raise RegistryError("RELEASE_TAG_NOT_ANNOTATED", "policy release must be an annotated tag")
     tag = api.get(_repo_endpoint(repository, f"git/tags/{obj.get('sha', '')}"))
     target = tag.get("object", {})
     if target.get("type") != "commit" or not SHA40_RE.fullmatch(target.get("sha", "")):
@@ -580,6 +621,7 @@ def _validate_pre_merge_core(
     expected_head: str,
     *,
     historical_base: str | None = None,
+    evidence_before: dt.datetime | None = None,
 ) -> PreMergeEvidence:
     repository = genesis["governance_repository"]
     if not SHA40_RE.fullmatch(expected_head):
@@ -613,7 +655,7 @@ def _validate_pre_merge_core(
     if approval_mode == "SINGLE_OWNER_AI_R0_ATTESTED":
         return _verify_single_owner_b(
             api, genesis, pr, pr_number, expected_head, base_sha,
-            index_sha, diff_sha, changed_ids,
+            index_sha, diff_sha, changed_ids, evidence_before=evidence_before,
         )
     if approval_mode != "EXTERNAL_GITHUB_REVIEW":
         raise RegistryError("APPROVAL_PROFILE_UNKNOWN", "release policy has no approved registry review mode")
@@ -624,6 +666,8 @@ def _validate_pre_merge_core(
         if not login or not review.get("submitted_at"):
             continue
         submitted = _parse_utc(review["submitted_at"])
+        if evidence_before is not None and submitted >= evidence_before:
+            continue
         if login not in latest_by_user or submitted >= latest_by_user[login][0]:
             latest_by_user[login] = (submitted, review)
     author = pr.get("user", {}).get("login")
@@ -664,6 +708,8 @@ def _validate_pre_merge_core(
             updated = _parse_utc(comment.get("updated_at", ""))
         except (RegistryError, TypeError, AttributeError):
             raise RegistryError("OWNER_APPROVAL_TIME_INVALID", "owner comment lacks trustworthy UTC metadata")
+        if evidence_before is not None and created >= evidence_before:
+            continue
         if updated != created:
             raise RegistryError("OWNER_APPROVAL_EDITED", "owner approval comment was edited after creation")
         owner_decisions.append((created, comment))
@@ -712,7 +758,7 @@ def validate_pre_merge(
 
 def _owner_github_comment(
     comments: Sequence[Mapping[str, Any]], owner: str, marker: str,
-    *, missing_code: str,
+    *, missing_code: str, evidence_before: dt.datetime | None = None,
 ) -> tuple[dt.datetime, Mapping[str, Any]]:
     """Latest owner-authored marker comment. GitHub attribution is not a human signature."""
     options: list[tuple[dt.datetime, Mapping[str, Any]]] = []
@@ -726,6 +772,8 @@ def _owner_github_comment(
             updated = _parse_utc(comment.get("updated_at", ""))
         except (RegistryError, TypeError, AttributeError) as exc:
             raise RegistryError("AI_B_COMMENT_TIME_INVALID", "owner comment missing valid UTC timestamps") from exc
+        if evidence_before is not None and created >= evidence_before:
+            continue
         if updated != created:
             raise RegistryError("AI_B_COMMENT_EDITED", "owner attestation or approval comment was edited")
         comment_id = comment.get("id")
@@ -738,10 +786,62 @@ def _owner_github_comment(
     return options[-1]
 
 
+def _verify_historical_ci(
+    api: Api, repo: str, head: str, bound_run_id: int, cutoff: dt.datetime,
+) -> None:
+    """Bounded event-time proof. Missing history never becomes approval.
+
+    Runs begun after merge are current-health evidence, not prior approval.
+    A run already pending at merge, or a newer failure before merge, blocks.
+    """
+    result = api.get(_repo_endpoint(repo, f"commits/{head}/check-runs"),
+                     {"per_page": "100", "filter": "all"})
+    if (not isinstance(result, dict) or type(result.get("total_count")) is not int
+            or not isinstance(result.get("check_runs"), list)
+            or not 0 <= result["total_count"] <= 100
+            or len(result["check_runs"]) != result["total_count"]):
+        raise RegistryError("AI_B_CI_HISTORY_UNAVAILABLE", "complete bounded CI history unavailable")
+    prior = []
+    for run in result["check_runs"]:
+        if (run.get("name") != "validate" or run.get("app", {}).get("slug") != "github-actions"
+                or run.get("head_sha") != head):
+            continue
+        try:
+            start = _parse_utc(run.get("started_at") or run.get("completed_at") or "")
+        except (RegistryError, TypeError, AttributeError) as exc:
+            raise RegistryError("AI_B_CI_HISTORY_TIME_UNPROVEN", "cannot place CI run in history") from exc
+        if start >= cutoff:
+            # A completed-only timestamp after merge cannot prove it started after merge.
+            if not run.get("started_at"):
+                raise RegistryError("AI_B_CI_HISTORY_TIME_UNPROVEN", "post-merge completion lacks start time")
+            continue
+        if type(run.get("id")) is not int or run["id"] <= 0:
+            raise RegistryError("AI_B_CI_HISTORY_UNAVAILABLE", "historical run ID invalid")
+        if run.get("status") != "completed" or not run.get("completed_at"):
+            raise RegistryError("AI_B_CI_NOT_COMPLETE_AT_MERGE", "a validation was pending at merge")
+        completed = _parse_utc(run["completed_at"])
+        if completed < start:
+            raise RegistryError("AI_B_CI_HISTORY_TIME_UNPROVEN", "CI times are inconsistent")
+        if completed >= cutoff:
+            raise RegistryError("AI_B_CI_NOT_COMPLETE_AT_MERGE", "a validation had not completed at merge")
+        # GitHub latest is ordered by completion; an older-started failing run
+        # that finishes after the approved run must also invalidate pre-merge approval.
+        prior.append((completed, run["id"], run))
+    if not prior:
+        raise RegistryError("AI_B_CI_HISTORY_UNAVAILABLE", "no pre-merge validation evidence")
+    _, run_id, latest = max(prior, key=lambda r: (r[0], r[1]))
+    if (run_id != bound_run_id or latest.get("status") != "completed"
+            or latest.get("conclusion") != "success"):
+        raise RegistryError("AI_B_CI_NOT_LATEST_AT_MERGE", "approved run not the latest successful pre-merge run")
+    if _parse_utc(latest.get("completed_at", "")) >= cutoff:
+        raise RegistryError("AI_B_CI_NOT_COMPLETE_AT_MERGE", "validation not complete before merge")
+
+
 def _verify_single_owner_b(
     api: Api, genesis: Mapping[str, Any], pr: Mapping[str, Any], pr_number: int,
     expected_head: str, base_sha: str, index_sha: str,
     diff_sha: str, changed_ids: tuple[str, ...],
+    *, evidence_before: dt.datetime | None = None,
 ) -> PreMergeEvidence:
     """Lower-assurance B evidence, strictly distinct from a GitHub APPROVED review.
 
@@ -756,7 +856,7 @@ def _verify_single_owner_b(
     comments = _pages(api, _repo_endpoint(repo, f"issues/{pr_number}/comments"))
     ai_time, ai_comment = _owner_github_comment(
         comments, owner, genesis["ai_review_comment_marker"],
-        missing_code="AI_B_ATTESTATION_MISSING",
+        missing_code="AI_B_ATTESTATION_MISSING", evidence_before=evidence_before,
     )
     common = {
         "candidate_head": expected_head,
@@ -804,31 +904,38 @@ def _verify_single_owner_b(
                 for ref in check.get("pull_requests", [])
             )):
         raise RegistryError("AI_B_CI_NOT_VERIFIED", "CI check does not verify this exact PR and candidate")
-    # An earlier successful run must not override a newer failed/running
-    # validation on the same exact candidate commit.
-    latest = api.get(
-        _repo_endpoint(repo, f"commits/{expected_head}/check-runs"),
-        {"per_page": "100", "filter": "latest"},
-    )
-    if (not isinstance(latest, dict)
-            or type(latest.get("total_count")) is not int
-            or not 0 <= latest["total_count"] <= 100
-            or not isinstance(latest.get("check_runs"), list)):
-        raise RegistryError("AI_B_CI_LATEST_UNAVAILABLE", "cannot obtain bounded latest GitHub checks")
-    current_checks = [
-        item for item in latest["check_runs"]
-        if item.get("name") == "validate"
-        and item.get("app", {}).get("slug") == "github-actions"
-        and item.get("head_sha") == expected_head
-    ]
-    if len(current_checks) != 1 or current_checks[0].get("id") != run_id:
-        raise RegistryError("AI_B_CI_STALE", "reviewed CI run is not the latest validation on exact head")
+    # Current pre-merge requires latest success. Historical replay instead
+    # establishes the most recent run that existed *before actual merge*.
+    if evidence_before is None:
+        # An earlier successful run must not override a newer failed/running
+        # validation on the same exact candidate commit.
+        latest = api.get(
+            _repo_endpoint(repo, f"commits/{expected_head}/check-runs"),
+            {"per_page": "100", "filter": "latest"},
+        )
+        if (not isinstance(latest, dict)
+                or type(latest.get("total_count")) is not int
+                or not 0 <= latest["total_count"] <= 100
+                or not isinstance(latest.get("check_runs"), list)):
+            raise RegistryError("AI_B_CI_LATEST_UNAVAILABLE", "cannot obtain bounded latest GitHub checks")
+        current_checks = [
+            item for item in latest["check_runs"]
+            if item.get("name") == "validate"
+            and item.get("app", {}).get("slug") == "github-actions"
+            and item.get("head_sha") == expected_head
+        ]
+        if (len(current_checks) != 1 or current_checks[0].get("id") != run_id
+                or current_checks[0].get("status") != "completed"
+                or current_checks[0].get("conclusion") != "success"):
+            raise RegistryError("AI_B_CI_STALE", "reviewed CI run is not the latest validation on exact head")
+    else:
+        _verify_historical_ci(api, repo, expected_head, run_id, evidence_before)
     ci_completed = _parse_utc(check.get("completed_at", ""))
     if not ci_completed < ai_time:
         raise RegistryError("AI_B_ORDER_INVALID", "GitHub CI must finish before AI report is posted")
     approval_time, approval = _owner_github_comment(
         comments, owner, genesis["approval_comment_marker"],
-        missing_code="AI_B_OWNER_APPROVAL_MISSING",
+        missing_code="AI_B_OWNER_APPROVAL_MISSING", evidence_before=evidence_before,
     )
     expected_owner = {
         **common,
@@ -875,6 +982,9 @@ class PostMergeEvidence:
             "phase": "POST_MERGE",
             "merge_commit": self.merge_commit,
             "first_parent": self.first_parent,
+            "verification_scope": "HISTORICAL_APPROVAL_ONLY",
+            "current_health": "NOT_EVALUATED",
+            "current_execution_authorized": False,
         }
 
 
@@ -897,10 +1007,11 @@ def _validate_post_merge_core(
     if not parents or not SHA40_RE.fullmatch(parents[0].get("sha", "")):
         raise RegistryError("FIRST_PARENT_MISMATCH", "actual merge first parent missing")
     historical_base = parents[0]["sha"]
+    merged_at = _parse_utc(pr.get("merged_at", ""))
     pre = _validate_pre_merge_core(
         api, genesis, schema, pr_number, expected_head, historical_base=historical_base,
+        evidence_before=merged_at,
     )
-    merged_at = _parse_utc(pr.get("merged_at", ""))
     approved_at = _parse_utc(pre.owner_comment_created_at)
     if not approved_at < merged_at:
         raise RegistryError("OWNER_APPROVAL_AFTER_MERGE", "approval must precede the actual GitHub merge")
@@ -1045,6 +1156,53 @@ def _registry_branch_head(api: Api, genesis: Mapping[str, Any]) -> str:
     return head
 
 
+def verify_immutable_policy_git_modes(
+    api: Api, repository: str, expected_commit: str,
+) -> None:
+    """Verify blob modes from the pinned Git tree; SHA256 manifest alone cannot do this.
+
+    Check every fixed policy file and the manifest, including the three inert
+    capability cards and their schema.  A truncated/missing/ambiguous Git tree
+    or a symlink/executable/submodule must fail closed.
+    """
+    commit = api.get(_repo_endpoint(repository, f"commits/{expected_commit}"))
+    if not isinstance(commit, dict) or commit.get("sha") != expected_commit:
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "immutable policy commit did not resolve exactly")
+    tree_sha = commit.get("commit", {}).get("tree", {}).get("sha", "")
+    if not isinstance(tree_sha, str) or not SHA40_RE.fullmatch(tree_sha):
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "immutable policy tree sha is invalid")
+    response = api.get(
+        _repo_endpoint(repository, f"git/trees/{tree_sha}"), {"recursive": "1"},
+    )
+    if (not isinstance(response, dict) or response.get("truncated") is not False
+            or not isinstance(response.get("tree"), list)):
+        raise RegistryError("RELEASE_POLICY_TREE_INVALID", "complete immutable policy Git tree is unavailable")
+    required = RELEASE_POLICY_FILESET | {"MANIFEST.sha256"}
+    observed: set[str] = set()
+    for entry in response["tree"]:
+        if not isinstance(entry, dict):
+            raise RegistryError("RELEASE_POLICY_TREE_INVALID", "invalid Git tree entry")
+        path = entry.get("path")
+        if path not in required:
+            continue
+        if path in observed:
+            raise RegistryError("RELEASE_POLICY_MODE_INVALID", f"duplicate policy Git tree path: {path}")
+        observed.add(path)
+        if (entry.get("type") != "blob" or entry.get("mode") != "100644"
+                or not isinstance(entry.get("sha"), str)
+                or not SHA40_RE.fullmatch(entry["sha"])):
+            raise RegistryError(
+                "RELEASE_POLICY_MODE_INVALID",
+                f"policy file must be a non-executable Git blob: {path}",
+            )
+    if observed != required:
+        raise RegistryError(
+            "RELEASE_POLICY_MODE_INVALID",
+            "immutable Git tree lacks required policy blobs",
+            missing=sorted(required - observed),
+        )
+
+
 def verify_policy_sources_from_immutable_commit(
     api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
     expected_policy_commit: str,
@@ -1085,6 +1243,7 @@ def verify_policy_sources_from_immutable_commit(
         if _sha256(raw) != manifest[path]:
             raise RegistryError("RELEASE_FILE_HASH_MISMATCH", "immutable policy file has wrong hash", path=path)
         actual[path] = raw
+    verify_immutable_policy_git_modes(api, repo, expected_policy_commit)
     try:
         remote_genesis = json.loads(actual["registry/GENESIS.json"])
         remote_schema = json.loads(actual["registry/projects.schema.json"])
@@ -1372,6 +1531,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command in {"validate-local", "validate-candidate"}:
             index, raw = load_index(index_path, schema)
             manifest = validate_manifest(root, manifest_path)
+            capability_report = validate_capability_directory(root)
             if args.command == "validate-local":
                 validate_genesis_index(genesis, index, raw)
                 result: Mapping[str, Any] = {
@@ -1379,12 +1539,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "phase": "LOCAL_GENESIS",
                     "index_sha256": _sha256(raw),
                     "manifest_entries": len(manifest),
+                    "capabilities": capability_report,
                     **build_report(index),
                 }
             else:
                 result = {
                     **candidate_schema_precheck(genesis, index, raw),
                     "manifest_entries": len(manifest),
+                    "capabilities": capability_report,
                 }
         else:
             api = GhApi()
@@ -1409,7 +1571,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             else:
                 result = reviewer_readiness(api, genesis)
-    except RegistryError as exc:
+    except (RegistryError, CapabilityError) as exc:
         print(json.dumps(exc.as_dict(), ensure_ascii=False, sort_keys=True))
         return 2
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

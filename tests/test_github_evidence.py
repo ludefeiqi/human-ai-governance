@@ -366,8 +366,8 @@ def test_owner_comment_chronology_and_integrity(schema, mutate, expected):
 @pytest.mark.parametrize(
     ("merged_at", "expected"),
     [
-        ("2026-10-08T00:59:00Z", "OWNER_APPROVAL_AFTER_MERGE"),
-        ("2026-10-08T01:02:03Z", "OWNER_APPROVAL_AFTER_MERGE"),
+        ("2026-10-08T00:59:00Z", "OWNER_APPROVAL_MISSING"),
+        ("2026-10-08T01:02:03Z", "OWNER_APPROVAL_MISSING"),
         ("bad", "TIME_INVALID"),
     ],
 )
@@ -550,3 +550,76 @@ def test_remote_release_manifest_with_only_three_key_files_is_rejected(schema):
     with pytest.raises(RegistryError) as caught:
         audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
     assert caught.value.code == "RELEASE_MANIFEST_FILESET_MISMATCH"
+
+
+RELEASE_TREE_KEY = (
+    f"repos/{REPO}/git/trees/{'9' * 40}", (("recursive", "1"),),
+)
+
+
+@pytest.mark.parametrize(
+    ("path", "mode", "kind"),
+    [
+        ("registry/capabilities/tool.route.json", "100755", "blob"),
+        ("registry/capabilities/project.restore.json", "120000", "blob"),
+        ("registry/capabilities/codex.observe.json", "160000", "commit"),
+        ("registry/capabilities/capability-card.schema.json", "100755", "blob"),
+        ("registry/validate_capabilities.py", "120000", "blob"),
+        ("MANIFEST.sha256", "100755", "blob"),
+    ],
+)
+def test_remote_release_git_tree_rejects_unsafe_mode(schema, path, mode, kind):
+    genesis, routes, release = snapshot_fixture(schema)
+    target = next(x for x in routes[RELEASE_TREE_KEY]["tree"] if x["path"] == path)
+    target.update({"mode": mode, "type": kind})
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(
+            SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release,
+        )
+    assert caught.value.code == "RELEASE_POLICY_MODE_INVALID"
+
+
+def test_remote_release_git_tree_must_be_complete(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    routes[RELEASE_TREE_KEY]["truncated"] = True
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_POLICY_TREE_INVALID"
+
+
+def test_remote_release_git_tree_missing_required_policy_fails_closed(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    path = "registry/capabilities/tool.route.json"
+    routes[RELEASE_TREE_KEY]["tree"] = [
+        x for x in routes[RELEASE_TREE_KEY]["tree"] if x["path"] != path
+    ]
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_POLICY_MODE_INVALID"
+    assert path in caught.value.details["missing"]
+
+
+def test_remote_release_git_tree_duplicate_policy_path_fails_closed(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    routes[RELEASE_TREE_KEY]["tree"].append(copy.deepcopy(routes[RELEASE_TREE_KEY]["tree"][0]))
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_POLICY_MODE_INVALID"
+
+
+def test_remote_release_git_tree_commit_must_equal_external_pin(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    routes[f"repos/{REPO}/commits/{release}"]["sha"] = "f" * 40
+    with pytest.raises(RegistryError) as caught:
+        audit_main_snapshot(SequencedHeadApi(routes, []), genesis, schema, expected_policy_commit=release)
+    assert caught.value.code == "RELEASE_POLICY_TREE_INVALID"
+
+
+def test_valid_release_checks_git_modes_for_all_policy_files(schema):
+    genesis, routes, release = snapshot_fixture(schema)
+    api = SequencedHeadApi(routes, [release, release])
+    audit_main_snapshot(api, genesis, schema, expected_policy_commit=release)
+    assert (RELEASE_TREE_KEY[0], RELEASE_TREE_KEY[1]) in api.calls
+    from registry.validate_registry import RELEASE_POLICY_FILESET
+    paths = {x["path"] for x in routes[RELEASE_TREE_KEY]["tree"]}
+    assert paths == RELEASE_POLICY_FILESET | {"MANIFEST.sha256"}

@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "codex.observe",
+  "capability_version": "1.0.0",
+  "status": "CANDIDATE_DEFINITION_ONLY",
+  "activation": {
+    "enabled": false,
+    "invocation": "FORBIDDEN",
+    "implementation": "NONE"
+  },
+  "risk": {
+    "class": "R0",
+    "read_only": true,
+    "state_change": "NONE",
+    "side_effects": "FORBIDDEN"
+  },
+  "policy_lock": {
+    "released_policy_version": "v0.2.0",
+    "released_policy_commit": "7aced01a8c12e1bba5e810ce91ab425f4615d4a7",
+    "candidate_policy_version": "v0.2.1",
+    "design_stage": "S2",
+    "source_lock_path": "clients/chatgpt-plugin/skills/governance-bootstrap/references/source-lock.md"
+  },
+  "dependencies": ["tool.route"],
+  "contract": {
+    "purpose": "Define observation of an existing Codex task and receipt through an approved read-only adapter.",
+    "allowed_operations": [
+      "read_existing_thread",
+      "list_existing_threads",
+      "report_runtime_unknown",
+      "query_original_effect"
+    ],
+    "forbidden_operations": [
+      "resume_thread",
+      "start_thread",
+      "start_turn",
+      "retry_task",
+      "dispatch_agent"
+    ],
+    "success_states": ["RUNTIME_VERIFIED", "RUNTIME_UNKNOWN"],
+    "failure_states": [
+      "AUTHORIZATION_BLOCKED",
+      "EFFECT_UNKNOWN",
+      "RISK_SCOPE_MISMATCH",
+      "TOOL_UNAVAILABLE"
+    ]
+  }
+}

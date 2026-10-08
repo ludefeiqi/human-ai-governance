@@ -1,0 +1,19 @@
+{
+  "plugin_id": "plugins_6ac6cda9e69c8191818c59bdee6c50be",
+  "expected_release_id": "pluginrel_6ac761de71488191b66468d32bcbcaa3",
+  "from_plugin_version": "0.2.0",
+  "candidate_plugin_version": "0.3.0-rc.1",
+  "policy_tag": "v0.2.0",
+  "policy_commit": "7aced01a8c12e1bba5e810ce91ab425f4615d4a7",
+  "policy_manifest_sha256": "47c8e8c14245c996363e9bdc50e8c8889a3e9a8dea8ff243db44b5ba629f0ff4",
+  "published": false,
+  "installed": false,
+  "delete_paths": [],
+  "preserve_unmentioned_files": true,
+  "preserve_identity_scope_audience": true,
+  "overlay_root": "clients/chatgpt-plugin",
+  "omit_from_overlay": [
+    "decision-engine.md"
+  ],
+  "note": "Requires current source manifests to preserve identity; use build_plugin_overlay.py. Never auto-install candidate."
+}
