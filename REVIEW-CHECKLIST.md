@@ -101,6 +101,18 @@ project_adoptions: []
 
 1. 受支持的调用面不再提供 `VerifiedRegistrySnapshot`、可导入 seal 或接受任意 YAML entry 的公开扫描函数；审计与受权 R0 读取在一次 `scan_authorized_main` 操作中完成，逐项目读取前后及返回前重核 HEAD，跨窗口重新审计。不宣称对任意持凭据 Python 进程提供 OS 防护。
 2. 只认可原 `projects.yaml` 的 GitHub `status=modified`，拒绝 `renamed`、`added`、`copied`、`previous_filename` 和其它路径。
-3. 远端正式政策必须按固定 19 项文件清单逐项 GET+SHA256 核验，不接受缺项、额外项或非关键文件篡改；不得只验证 validator/schema/GENESIS。
+3. 远端正式政策必须按固定 20 项文件清单逐项 GET+SHA256 核验，不接受缺项、额外项或非关键文件篡改；不得只验证 validator/schema/GENESIS。
 4. 负例覆盖伪造 seal、过期/暂停索引、重命名、远端 manifest 不完整及非关键文件字节篡改；CI 不代表独立 Review 或用户批准。
-5. 审查等级 A 仍要求真实第二 GitHub actor；B 是另需准确政策批准并实现机器回执验证的低保证等级，仅限发现元数据，绝不能被默认为生效。
+5. 审查等级 A 仍要求真实第二 GitHub actor；B 是已在本候选实现机器回执验证、但另需准确政策发布批准的低保证等级，仅限发现元数据，绝不能被默认为生效。
+
+
+## P2 关口一 · B 级单账号审批可执行性专项验收（候选）
+
+- 确认只有 immutable GENESIS 能选 A/B，模式不可由 caller/CI/缺少审查人自动切换。当前候选 GENESIS 锁定 B，但 v0.2.0 Tag 未发布。
+- B 的 PR 仅允许修改现有 `projects.yaml`，Schema 固定 discovery-only、reference_only、无 dispatch/writer 权限；验证最新成功 GitHub Actions `validate` 的完整 Check ID/HEAD/PR/UTC 时间，不接受旧 PASS 掩盖新失败。
+- GitHub 评论中的 AI 摘要属于 owner-account-attested 低保证来源，不能宣称独立 GitHub actor/密码学 AI 独立性；审查报告需在真实独立 AI 会话产生，GitHub Owner 仅存证。不自动把候选文档当成实际证明。
+- owner 两次不同 ID 的评论依次绑定真实 CI、HEAD、index SHA、diff SHA、changed IDs、审查原文 SHA256、作用域；编辑、删除、顺序颠倒、否决、旧 Head、升级 `project_authority_effect` 均 HOLD。
+- 合并后不可从可能漂移的 PR 当前 base SHA 反推历史；必须按实际 merge Commit 第一父提交与已批准的原始 base 重新核实，再沿 first-parent 链完整回查。
+- 独立 AI 复核与 CI 通过只允许准备正式政策发布申请，用户对准确正式 v0.2.0 发布、插件版本锁更新及每次未来登记仍须单独批准；不动 HOT/DOT/ROOT。
+
+**关口一文件集更新：** 目前应核对完整 20 项政策文件集。新增 B 级专项负例测试文件后，固定政策 Manifest 的准确集合为 20 项；审查必须以当前 validator 中 `RELEASE_POLICY_FILESET` 和 GitHub 实际原始字节为准，不能沿用旧候选的 19 项统计。

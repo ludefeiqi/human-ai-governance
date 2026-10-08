@@ -94,4 +94,7 @@ v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immuta
 **P2.1 额外判据（候选）：** owner 批准评论不得预填未知 GitHub `created_at`；必须先有真实独立 GitHub actor 对准确 HEAD 的 `APPROVED` Review，再有未编辑的 owner 绑定评论，严格核对 `submitted_at < created_at < merged_at`。动态索引仅能经外部政策 Commit pin、固定 validator/Schema/GENESIS 与完整 first-parent 链核实后生成临时可信快照；原始 YAML `verified` 字样无读取授权。CI `validate-candidate` 只能做格式预检，不赋予登记/派工权限。仓库只有 owner、无独立 GitHub reviewer 时维持 HOLD，不伪造第二账号身份。
 
 
-**P2 封板补充（尚未正式发布）：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 19 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查只是明确更低保证等级的待批准政策，不会自动替换现行真实 GitHub Reviewer 门禁。
+**P2 封板补充（尚未正式发布）：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 20 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查已在候选实现机器验证，但仍是较低保证等级的待批准政策，不能在正式发布前自动替换已生效政策，也不得冒充真实 GitHub Reviewer。
+
+
+**P2 关口一 B 级候选已具备机器验证（尚未发布）：** 仅对纯发现 `projects.yaml` 变更，配置必须是随正式 Tag 固定的 `GENESIS.registry_update_approval_mode`；B 机器核验准确 HEAD/parent/index/diff/IDs、最新 GitHub Actions success、owner 发布的 AI R0 审查证明及 owner 单独批准评论，保证 `CI < AI审查证据 < owner批准 < merge` 并校验全链。B 的审查来源由 owner 账号陈述，不能证明存在第二 GitHub 账号或密码学独立 AI 身份，也不能自动生成私库读取授权、派工和 writer；旧 A 级仍保留为较高保证选择。只有新的 v0.2.0 政策得到准确版本的独立审查和用户**另一次正式发布批准**后，此候选 B 配置才可生效。本轮仍为 Draft，项目原有权限不变。

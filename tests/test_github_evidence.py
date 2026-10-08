@@ -188,12 +188,21 @@ def test_post_merge_binds_actual_merge_and_first_parent(schema):
     assert evidence.first_parent == SHA_A
 
 
+def change_first_parent_with_another_real_looking_commit(routes):
+    # The changed first parent must itself be retrievable as a Git commit,
+    # then the historical owner approval must reject the different base.
+    routes[(CONTENT_ENDPOINT, (("ref", SHA_D),))] = copy.deepcopy(
+        routes[(CONTENT_ENDPOINT, (("ref", SHA_A),))]
+    )
+    routes[f"repos/{REPO}/commits/{SHA_C}"]["parents"][0]["sha"] = SHA_D
+
+
 @pytest.mark.parametrize(
     ("mutate", "code"),
     [
         (lambda r: r[PR_ENDPOINT].update({"merged": False}), "MERGE_COMMIT_MISMATCH"),
         (lambda r: r[PR_ENDPOINT].update({"merge_commit_sha": SHA_D}), "MERGE_COMMIT_MISMATCH"),
-        (lambda r: r[f"repos/{REPO}/commits/{SHA_C}"]["parents"][0].update({"sha": SHA_D}), "FIRST_PARENT_MISMATCH"),
+        (change_first_parent_with_another_real_looking_commit, "OWNER_APPROVAL_MISMATCH"),
         (lambda r: r.update({(CONTENT_ENDPOINT, (("ref", SHA_C),)): content(b"different")}), "MERGED_INDEX_MISMATCH"),
     ],
 )
@@ -489,7 +498,8 @@ def test_remote_manifest_all_nineteen_paths_are_fetched(schema):
         if endpoint.startswith(f"repos/{REPO}/contents/") and fields == (("ref", release),)
     ]
     fixed = [x for x in refs if not x.endswith("/projects.yaml")]
-    assert len(set(fixed)) == 20  # 19 policy files plus manifest itself
+    from registry.validate_registry import RELEASE_POLICY_FILESET
+    assert len(set(fixed)) == len(RELEASE_POLICY_FILESET) + 1  # all policy files plus manifest
     assert f"repos/{REPO}/contents/README.md" in fixed
     assert f"repos/{REPO}/contents/tests/test_strict_reader.py" in fixed
 

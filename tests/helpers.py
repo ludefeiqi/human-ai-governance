@@ -100,6 +100,8 @@ def active_genesis() -> dict[str, Any]:
         "initial_index_sha256": "0" * 64,
         "initial_project_identity_hashes": {},
         "approval_comment_marker": "HAGOV-REGISTRY-OWNER-APPROVAL-V1",
+        "registry_update_approval_mode": "EXTERNAL_GITHUB_REVIEW",
+        "ai_review_comment_marker": "HAGOV-AI-R0-ATTESTATION-V1",
         "unreleased_behavior": "HOLD_V0_1_SEMANTICS",
     }
 

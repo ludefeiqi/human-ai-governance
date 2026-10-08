@@ -51,8 +51,8 @@ validator 的网络面只可调用认证的 `gh api --method GET`。不接受 YA
 - changed files 恰好只有 `projects.yaml`，且不是删除；
 - 从 exact head/base 读取 raw index，严格解析并与上一份索引比较；
 - 计算 candidate index raw SHA256、canonical JSON semantic diff SHA256 和排序后的 changed IDs；
-- 至少一个不等于 PR author、也不等于 immutable owner 的 reviewer，其**最新** review 在 exact head 上为 `APPROVED`；
-- immutable owner 必须在独立审查者 exact-head `APPROVED` Review 之后发布 GitHub comment。评论正文绑定 head、base、index SHA、diff SHA、IDs、动作和范围；以 API `created_at` 为唯一批准时间，不得要求预填尚未生成的服务器时间；`updated_at` 必须等于 `created_at`，编辑评论一律拒绝，comment ID 必须读回。
+- **A 级适用：** 至少一个不等于 PR author、也不等于 immutable owner 的真实 GitHub reviewer，其**最新** review 在 exact head 上为 `APPROVED`；B 级不得伪称此项已满足；
+- **A 级适用：** immutable owner 在上述 GitHub Review 后发绑定评论。**B 级适用：** 以固定政策 GENESIS 中不可变模式为准，先有准确 HEAD 的成功 CI，再有 owner 账号发布的 AI R0 审查证明，最后才有 owner 单独发布的准确范围批准评论。两类评论各有独立 ID，`created_at`/`updated_at` 必须由 GitHub 记录且相等，禁止伪造将来的服务器时间。
 
 Owner comment 固定格式：
 
@@ -67,7 +67,7 @@ authorized_action=APPROVE_DISCOVERY_REGISTRY_UPDATE
 approval_scope=GOVERNANCE_REGISTRY_ONLY
 ```
 
-PRE_MERGE 必须核实独立 Review 的服务器 `submitted_at` 早于 owner comment 的 `created_at`，且 reviewer 最新审查状态仍为 `APPROVED`；最后一条同标记的 owner 决议优先，不能重用被取代的旧批准。PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
+PRE_MERGE 在 A 级验证真实 GitHub Review `submitted_at < owner.created_at`；在 B 级验证 `CI.completed_at < AI证明.created_at < owner批准.created_at`、准确 SHA/差分/ID/范围绑定，且所引 CI ID 仍是该 SHA 的最新成功检查。最后一条相同标记的决议优先，已编辑或存在更晚不合格证明均为 HOLD。两者均不预知 merge SHA、不等于正式生效。
 
 ### POST_MERGE
 
@@ -87,7 +87,7 @@ PRE_MERGE 必须核实独立 Review 的服务器 `submitted_at` 早于 owner com
 
 ## 6. 漂移、冷恢复与停止
 
-冷恢复顺序：从插件取得**独立于 YAML 的精确政策 Commit pin** → Tag 解引用匹配 pin → 从固定 Commit 读取、核验**全部 19 项固定政策文件**的原始 SHA256，比较正在运行的 validator/Schema/GENESIS → pin main H1 → 严格读取 H1 的索引并验证 first-parent/每次审批 → 仅在同一次 `scan_authorized_main(...)` 操作中读取调用方另有 R0 授权的项目 ID → 每个项目读取前后复核 `main` HEAD → 返回结果前再复核。不得返回可重用的扫描令牌或快照。YAML 即使写着 `registration: verified` 也不是扫描能力；漂移即 `REGISTRY_HEAD_DRIFT/HOLD`，不返回本轮部分结果。不同窗口必须重新审计。
+冷恢复顺序：从插件取得**独立于 YAML 的精确政策 Commit pin** → Tag 解引用匹配 pin → 从固定 Commit 读取、核验**全部 20 项固定政策文件（含本轮新增测试）**的原始 SHA256，比较正在运行的 validator/Schema/GENESIS → pin main H1 → 严格读取 H1 的索引并验证 first-parent/每次审批 → 仅在同一次 `scan_authorized_main(...)` 操作中读取调用方另有 R0 授权的项目 ID → 每个项目读取前后复核 `main` HEAD → 返回结果前再复核。不得返回可重用的扫描令牌或快照。YAML 即使写着 `registration: verified` 也不是扫描能力；漂移即 `REGISTRY_HEAD_DRIFT/HOLD`，不返回本轮部分结果。不同窗口必须重新审计。
 
 若 v0.2.0 Tag 未发布或无法解引用、Manifest/GENESIS/index 不匹配、GitHub GET 失败、项目 403/404、Git mode 不安全或审批不足，只报告准确缺口。不得自动采用项目、派工、恢复 thread、变更 writer、改保护设置或创建第二账本/服务。
 
@@ -108,14 +108,66 @@ git diff --check
 
 ## 8. 单人多 AI 的分级审查候选（**待准确政策裁定，尚未生效**）
 
-### A：EXTERNAL_GITHUB_REVIEW（现行可执行门禁）
+### A：EXTERNAL_GITHUB_REVIEW（仍保留的高保证选项）
 
 由不同于仓库 owner/PR author 的真实 GitHub 账号对同一准确 HEAD 提交 `APPROVED` Review；服务端 Review 时间须早于 owner 对相同对象的批准，批准又必须早于 merge。当前私有仓库仅有 `ludefeiqi` 协作者，且 `main.protected=false`，分支保护和 rulesets API 返回套餐限制。**没有真实第二账号时 A 必须 HOLD**；其它 AI 窗口或 CI 不能冒充 GitHub Review。
 
-### B：SINGLE_OWNER_AI_R0_ATTESTED（较低保证等级的拟议方案）
+### B：SINGLE_OWNER_AI_R0_ATTESTED（已实现机器核验的较低保证等级候选）
 
 仅考虑发现元数据的登记变更，且持续 `reference_only`、`dispatch_enabled:false`、`writer_source:current_project_ledger_only`。不得增加项目实际读取权限、采用、业务派工、INTENT、writer、生产、身份权限或 R3 操作。
 
 拟议必要证据为：独立 AI R0 审查绑定准确 PR HEAD、base、索引原始 SHA256、规范化差分摘要、changed IDs、审查结论与风险，保存可再读回的报告引用/摘要；同 HEAD 的 GitHub CI 明确 success；人类 owner 以可核验评论明确批准准确版本、用途范围与报告/CI 引用，服务器时间晚于审查和 CI 且早于 merge；合并后严格检查 parent、原始索引字节和连续历史。没有证明独立 AI 的不同 GitHub 账号身份，保证等级**严格低于 A**。单账号也没有平台分支保护，须保留读取端 fail-closed，不得伪称平台阻止恶意直接 push。
 
-**执行边界：** B 目前只是候选政策。当前验证器依然执行 A 的不同 GitHub Reviewer 要求；只有用户另行对准确政策变更正式批准、独立复核，并将 B 的证据验证实现和测试加入受控版本，才可能启用。此处不得自动降级、也不得将 AI 评审回执当成 GitHub APPROVED Review。
+**执行边界：** B 机器验证已加入本次 Draft PR 候选，且其 `registry/GENESIS.json` 已明确锁定 `registry_update_approval_mode=SINGLE_OWNER_AI_R0_ATTESTED`。只有用户对**准确政策候选**完成独立发布审批、GitHub 正式发布 annotated v0.2.0 Tag、插件显式更新政策 pin 后，才可应用于其后的普通发现登记 PR。当前仍运行 v0.1.0、B 未生效。A 的机器路径仍保留，但绝不在候选缺证据时自动退到 B；B 亦绝不扩大项目读取、writer 或 R2/R3 权限。
+
+
+### B 级完整机器验证合同与 PR 原生证据格式
+
+固定 `registry/GENESIS.json` 决定审批模式，而不是根据仓库只有一个账号、某个 caller boolean 或 CI 结果临时降级。候选指定 B；这是**待正式发布的配置**，当前 `v0.1.0` 生效政策不因此变化。
+
+B 只允许发布后普通项目发现索引 PR，文件差异必须唯一且恰好为原有 `projects.yaml` 的 `modified`，拒绝 `renamed`/`previous_filename`/新增文件。Schema 固定 `reference_only`、`dispatch_enabled:false`、`writer_source:current_project_ledger_only`。新增条目的登记不能单独授予项目私库读取权限；实际扫描仍由另行授权的 `authorized_project_ids` 控制。
+
+1. 候选 HEAD 运行 GitHub Actions `validate`，从原生 `check-runs/{id}` GET 读取准确 `head_sha`、`name=validate`、`app.slug=github-actions`、`status=completed`、`conclusion=success`、关联 PR 与 GitHub UTC `completed_at`；再从该 HEAD 的最新 check-runs 列表确认同一 ID 仍是最新检查，旧 PASS 不能覆盖后来失败。
+2. 由独立 AI 对准确 HEAD 和差分作**真正独立的 R0 只读审查**，随后由仓库 owner 将审查摘要发布为 GitHub PR 原生评论。格式如下，`summary` 至少 10 字，`review_engine`/`review_session_ref` 是来源陈述，**不是 AI 作者身份的密码学证明**。
+
+```text
+HAGOV-AI-R0-ATTESTATION-V1
+candidate_head=<40hex>
+previous_index_commit=<40hex>
+index_sha256=<64hex>
+normalized_diff_sha256=<64hex>
+changed_ids=<sorted-comma-separated-ids>
+review_scope=DISCOVERY_METADATA_ONLY
+decision=APPROVE_DESIGN
+assurance_level=OWNER_POSTED_AI_R0_NOT_GITHUB_REVIEW
+open_blockers=0
+review_engine=<model-or-review-system>
+review_session_ref=<verifiable-session-reference>
+summary=<concise-findings-10-to-500-chars>
+ci_check_run_id=<github-check-run-id>
+```
+
+3. owner **另行明确批准该单一变更**，其 GitHub 评论必须晚于 AI 证明，且全文各字段精确匹配：
+
+```text
+HAGOV-REGISTRY-OWNER-APPROVAL-V1
+candidate_head=<40hex>
+previous_index_commit=<40hex>
+index_sha256=<64hex>
+normalized_diff_sha256=<64hex>
+changed_ids=<sorted-comma-separated-ids>
+authorized_action=APPROVE_DISCOVERY_REGISTRY_UPDATE
+approval_scope=GOVERNANCE_REGISTRY_ONLY
+approval_profile=SINGLE_OWNER_AI_R0_ATTESTED
+ai_review_comment_id=<github-comment-id>
+ai_review_comment_sha256=<sha256-of-AI-comment-raw-UTF8-body>
+ci_check_run_id=<github-check-run-id>
+project_authority_effect=NONE
+```
+
+4. 发布前 `pre-merge` 只读核验：两个评论均是 owner GitHub 账号归属、ID/时间真实可读、正文未编辑；评论中 Head/base/原始 index/diff/changed IDs 一致，owner 评论绑定此前 AI 评论完整原文哈希，且 `CI < AI < owner` 严格成立；Owner 不能以旧批准覆盖最新较差/冲突审查。失败即 HOLD。
+5. 合并后 `post-merge` 独立重 GET 实际 merge commit、第一父提交和 `merged_at`，核实原始 index 字节及 `owner < merge`；`audit-chain` 全链重复验收。GitHub PR 的 `base.sha` 合并后可移动，必须使用**实际 merge commit first parent** 作为历史 base。不存在符合准确审查、CI、批准与合并证明的更改不能成为可信 registry。
+
+**证明能力边界：** GitHub 只能证明平台记录了 owner 账号发布的两份评论及其时间、CI 实际运行结果；它不能证明 AI 真由某个独立会话生成，也不能证明评论必然由真人亲手发布。独立 AI 审查要靠独立对话与用户本人操作过程保证，因此 B 是**单 owner 认证的较低保证等级**，不是不同 GitHub 账号的 A，也不是平台强制分支保护。`main.protected=false` 时，读入方的 first-parent/回执校验承担失败即停止功能；不能防止持有 owner 凭据的人强行改写历史。
+
+**使用时点：** 这个 PR #5 是包含多份政策文件的版本发布候选，**不得拿未来只许改 projects.yaml 的 B 规则直接审批 PR #5 本身**。本轮也不创建 AI/owner 的实际批准评论，不能把同意开发等同于未来单笔 GitHub 登记的授权。

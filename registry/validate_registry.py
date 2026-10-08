@@ -58,6 +58,7 @@ FIXED_POLICY_TEST_FILES = {
     "tests/helpers.py",
     "tests/test_github_evidence.py",
     "tests/test_project_sources.py",
+    "tests/test_single_owner_approval.py",
     "tests/test_strict_reader.py",
     "tests/test_transitions_and_manifest.py",
 }
@@ -338,6 +339,8 @@ def load_genesis(path: Path) -> dict[str, Any]:
         "initial_index_sha256",
         "initial_project_identity_hashes",
         "approval_comment_marker",
+        "registry_update_approval_mode",
+        "ai_review_comment_marker",
         "unreleased_behavior",
     }
     if set(value) != required:
@@ -359,6 +362,12 @@ def load_genesis(path: Path) -> dict[str, Any]:
         raise RegistryError("GENESIS_INDEX_SHA_INVALID", "initial index SHA256 is invalid")
     if value["approval_comment_marker"] != "HAGOV-REGISTRY-OWNER-APPROVAL-V1":
         raise RegistryError("GENESIS_MARKER_INVALID", "approval comment marker is invalid")
+    if value["ai_review_comment_marker"] != "HAGOV-AI-R0-ATTESTATION-V1":
+        raise RegistryError("GENESIS_AI_MARKER_INVALID", "independent AI R0 attestation marker is invalid")
+    if value["registry_update_approval_mode"] not in {
+        "EXTERNAL_GITHUB_REVIEW", "SINGLE_OWNER_AI_R0_ATTESTED",
+    }:
+        raise RegistryError("GENESIS_APPROVAL_MODE_INVALID", "registry approval mode is not recognized")
     if value["unreleased_behavior"] != "HOLD_V0_1_SEMANTICS":
         raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior is invalid")
     identities = value["initial_project_identity_hashes"]
@@ -517,6 +526,10 @@ class PreMergeEvidence:
     independent_review_submitted_at: str
     owner_comment_id: int
     owner_comment_created_at: str
+    approval_profile: str = "EXTERNAL_GITHUB_REVIEW"
+    ai_review_comment_id: int | None = None
+    ai_review_comment_sha256: str | None = None
+    ci_check_run_id: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -533,6 +546,16 @@ class PreMergeEvidence:
             "owner_comment_id": self.owner_comment_id,
             "owner_comment_created_at": self.owner_comment_created_at,
             "approval_authentication": "GITHUB_ACCOUNT_ATTRIBUTION_ONLY_NOT_PASSWORD_SIGNATURE",
+            "approval_profile": self.approval_profile,
+            "assurance_level": (
+                "OWNER_POSTED_AI_R0_NOT_INDEPENDENT_GITHUB_REVIEW"
+                if self.approval_profile == "SINGLE_OWNER_AI_R0_ATTESTED"
+                else "EXTERNAL_GITHUB_REVIEW"
+            ),
+            "ai_review_comment_id": self.ai_review_comment_id,
+            "ai_review_comment_sha256": self.ai_review_comment_sha256,
+            "ci_check_run_id": self.ci_check_run_id,
+            "source_attribution_is_not_ai_authorship_proof": True,
         }
 
 
@@ -542,6 +565,8 @@ def validate_pre_merge(
     schema: Mapping[str, Any],
     pr_number: int,
     expected_head: str,
+    *,
+    historical_base: str | None = None,
 ) -> PreMergeEvidence:
     resolve_release_commit(api, genesis)
     repository = genesis["governance_repository"]
@@ -550,7 +575,9 @@ def validate_pre_merge(
     pr = api.get(_repo_endpoint(repository, f"pulls/{pr_number}"))
     if pr.get("head", {}).get("sha") != expected_head:
         raise RegistryError("CANDIDATE_HEAD_MISMATCH", "PR head does not equal expected candidate head")
-    base_sha = pr.get("base", {}).get("sha", "")
+    # Once merged, GitHub may move the PR's base ref to later main HEAD.
+    # The actual merge commit first parent is the historical approved base.
+    base_sha = historical_base if historical_base is not None else pr.get("base", {}).get("sha", "")
     if not SHA40_RE.fullmatch(base_sha):
         raise RegistryError("PR_BASE_INVALID", "PR base SHA is missing or invalid")
     files = _pages(api, _repo_endpoint(repository, f"pulls/{pr_number}/files"))
@@ -570,6 +597,14 @@ def validate_pre_merge(
     _, diff_sha = normalized_diff(changes)
     index_sha = _sha256(current_raw)
     changed_ids = tuple(change["id"] for change in changes)
+    approval_mode = genesis["registry_update_approval_mode"]
+    if approval_mode == "SINGLE_OWNER_AI_R0_ATTESTED":
+        return _verify_single_owner_b(
+            api, genesis, pr, pr_number, expected_head, base_sha,
+            index_sha, diff_sha, changed_ids,
+        )
+    if approval_mode != "EXTERNAL_GITHUB_REVIEW":
+        raise RegistryError("APPROVAL_PROFILE_UNKNOWN", "release policy has no approved registry review mode")
     reviews = _pages(api, _repo_endpoint(repository, f"pulls/{pr_number}/reviews"))
     latest_by_user: dict[str, tuple[dt.datetime, Mapping[str, Any]]] = {}
     for review in reviews:
@@ -648,6 +683,160 @@ def validate_pre_merge(
     )
 
 
+
+def _owner_github_comment(
+    comments: Sequence[Mapping[str, Any]], owner: str, marker: str,
+    *, missing_code: str,
+) -> tuple[dt.datetime, Mapping[str, Any]]:
+    """Latest owner-authored marker comment. GitHub attribution is not a human signature."""
+    options: list[tuple[dt.datetime, Mapping[str, Any]]] = []
+    for comment in comments:
+        if comment.get("user", {}).get("login") != owner:
+            continue
+        if not str(comment.get("body", "")).startswith(marker):
+            continue
+        try:
+            created = _parse_utc(comment.get("created_at", ""))
+            updated = _parse_utc(comment.get("updated_at", ""))
+        except (RegistryError, TypeError, AttributeError) as exc:
+            raise RegistryError("AI_B_COMMENT_TIME_INVALID", "owner comment missing valid UTC timestamps") from exc
+        if updated != created:
+            raise RegistryError("AI_B_COMMENT_EDITED", "owner attestation or approval comment was edited")
+        comment_id = comment.get("id")
+        if type(comment_id) is not int or comment_id <= 0:
+            raise RegistryError("AI_B_COMMENT_ID_INVALID", "owner comment lacks valid GitHub ID")
+        options.append((created, comment))
+    if not options:
+        raise RegistryError(missing_code, "required GitHub owner-account attestation is missing")
+    options.sort(key=lambda c: (c[0], c[1]["id"]))
+    return options[-1]
+
+
+def _verify_single_owner_b(
+    api: Api, genesis: Mapping[str, Any], pr: Mapping[str, Any], pr_number: int,
+    expected_head: str, base_sha: str, index_sha: str,
+    diff_sha: str, changed_ids: tuple[str, ...],
+) -> PreMergeEvidence:
+    """Lower-assurance B evidence, strictly distinct from a GitHub APPROVED review.
+
+    The attestation is posted using the owner's GitHub account. We verify that
+    GitHub recorded the artifact and its exact binding, NOT that another account,
+    a cryptographically independent AI, or a human author created that content.
+    """
+    if pr.get("draft") is True:
+        raise RegistryError("AI_B_PR_DRAFT", "ordinary registry change must leave Draft before approval")
+    repo = genesis["governance_repository"]
+    owner = genesis["immutable_owner_account"]
+    comments = _pages(api, _repo_endpoint(repo, f"issues/{pr_number}/comments"))
+    ai_time, ai_comment = _owner_github_comment(
+        comments, owner, genesis["ai_review_comment_marker"],
+        missing_code="AI_B_ATTESTATION_MISSING",
+    )
+    common = {
+        "candidate_head": expected_head,
+        "previous_index_commit": base_sha,
+        "index_sha256": index_sha,
+        "normalized_diff_sha256": diff_sha,
+        "changed_ids": ",".join(changed_ids),
+    }
+    review_body = ai_comment["body"]
+    reported = _parse_owner_comment(review_body, genesis["ai_review_comment_marker"])
+    required_review = {
+        **common,
+        "review_scope": "DISCOVERY_METADATA_ONLY",
+        "decision": "APPROVE_DESIGN",
+        "assurance_level": "OWNER_POSTED_AI_R0_NOT_GITHUB_REVIEW",
+        "open_blockers": "0",
+    }
+    if reported is None or any(reported.get(key) != val for key, val in required_review.items()):
+        raise RegistryError("AI_B_ATTESTATION_MISMATCH", "AI R0 report not bound to exact registry diff")
+    if set(reported) != set(required_review) | {
+        "review_engine", "review_session_ref", "summary", "ci_check_run_id",
+    }:
+        raise RegistryError("AI_B_ATTESTATION_FIELDS_INVALID", "AI R0 report has unknown or missing fields")
+    if (not re.fullmatch(r"[A-Za-z0-9._-]{2,64}", reported["review_engine"])
+            or not re.fullmatch(r"[A-Za-z0-9._:/-]{6,180}", reported["review_session_ref"])
+            or not 10 <= len(reported["summary"]) <= 500
+            or any(ch in reported["summary"] for ch in "\r\n")):
+        raise RegistryError("AI_B_ATTESTATION_SOURCE_INVALID", "AI review source and summary are incomplete")
+    try:
+        run_id = int(reported["ci_check_run_id"])
+    except (ValueError, TypeError) as exc:
+        raise RegistryError("AI_B_CI_ID_INVALID", "CI check run ID must be numeric") from exc
+    if not 0 < run_id < 2**63 or str(run_id) != reported["ci_check_run_id"]:
+        raise RegistryError("AI_B_CI_ID_INVALID", "CI check run ID is not canonical")
+    check = api.get(_repo_endpoint(repo, f"check-runs/{run_id}"))
+    if (check.get("id") != run_id
+            or check.get("name") != "validate"
+            or check.get("head_sha") != expected_head
+            or check.get("status") != "completed"
+            or check.get("conclusion") != "success"
+            or check.get("app", {}).get("slug") != "github-actions"
+            or not any(
+                ref.get("number") == pr_number
+                and ref.get("head", {}).get("sha") == expected_head
+                for ref in check.get("pull_requests", [])
+            )):
+        raise RegistryError("AI_B_CI_NOT_VERIFIED", "CI check does not verify this exact PR and candidate")
+    # An earlier successful run must not override a newer failed/running
+    # validation on the same exact candidate commit.
+    latest = api.get(
+        _repo_endpoint(repo, f"commits/{expected_head}/check-runs"),
+        {"per_page": "100", "filter": "latest"},
+    )
+    if (not isinstance(latest, dict)
+            or type(latest.get("total_count")) is not int
+            or not 0 <= latest["total_count"] <= 100
+            or not isinstance(latest.get("check_runs"), list)):
+        raise RegistryError("AI_B_CI_LATEST_UNAVAILABLE", "cannot obtain bounded latest GitHub checks")
+    current_checks = [
+        item for item in latest["check_runs"]
+        if item.get("name") == "validate"
+        and item.get("app", {}).get("slug") == "github-actions"
+        and item.get("head_sha") == expected_head
+    ]
+    if len(current_checks) != 1 or current_checks[0].get("id") != run_id:
+        raise RegistryError("AI_B_CI_STALE", "reviewed CI run is not the latest validation on exact head")
+    ci_completed = _parse_utc(check.get("completed_at", ""))
+    if not ci_completed < ai_time:
+        raise RegistryError("AI_B_ORDER_INVALID", "GitHub CI must finish before AI report is posted")
+    approval_time, approval = _owner_github_comment(
+        comments, owner, genesis["approval_comment_marker"],
+        missing_code="AI_B_OWNER_APPROVAL_MISSING",
+    )
+    expected_owner = {
+        **common,
+        "authorized_action": "APPROVE_DISCOVERY_REGISTRY_UPDATE",
+        "approval_scope": "GOVERNANCE_REGISTRY_ONLY",
+        "approval_profile": "SINGLE_OWNER_AI_R0_ATTESTED",
+        "ai_review_comment_id": str(ai_comment["id"]),
+        "ai_review_comment_sha256": _sha256(review_body.encode("utf-8")),
+        "ci_check_run_id": str(run_id),
+        "project_authority_effect": "NONE",
+    }
+    decision = _parse_owner_comment(approval["body"], genesis["approval_comment_marker"])
+    if decision != expected_owner:
+        raise RegistryError("AI_B_OWNER_APPROVAL_MISMATCH", "owner approval does not bind the exact AI and CI evidence")
+    if ai_comment["id"] == approval["id"] or not ai_time < approval_time:
+        raise RegistryError("AI_B_ORDER_INVALID", "AI attestation must precede separate owner approval")
+    return PreMergeEvidence(
+        pr_number=pr_number,
+        candidate_head=expected_head,
+        previous_index_commit=base_sha,
+        index_sha256=index_sha,
+        normalized_diff_sha256=diff_sha,
+        changed_ids=changed_ids,
+        independent_reviewer="NOT_APPLICABLE_B_NO_SECOND_GITHUB_ACTOR",
+        independent_review_submitted_at="NOT_APPLICABLE_B_OWNER_POSTED_AI_ATTESTATION",
+        owner_comment_id=approval["id"],
+        owner_comment_created_at=approval_time.isoformat().replace("+00:00", "Z"),
+        approval_profile="SINGLE_OWNER_AI_R0_ATTESTED",
+        ai_review_comment_id=ai_comment["id"],
+        ai_review_comment_sha256=_sha256(review_body.encode("utf-8")),
+        ci_check_run_id=run_id,
+    )
+
+
 @dataclass(frozen=True)
 class PostMergeEvidence:
     pre: PreMergeEvidence
@@ -673,18 +862,23 @@ def validate_post_merge(
 ) -> PostMergeEvidence:
     if not SHA40_RE.fullmatch(expected_merge):
         raise RegistryError("MERGE_COMMIT_INVALID", "expected merge commit must be 40 lowercase hex")
-    pre = validate_pre_merge(api, genesis, schema, pr_number, expected_head)
     repository = genesis["governance_repository"]
     pr = api.get(_repo_endpoint(repository, f"pulls/{pr_number}"))
     if not pr.get("merged") or pr.get("merge_commit_sha") != expected_merge:
         raise RegistryError("MERGE_COMMIT_MISMATCH", "PR is not merged at expected commit")
+    commit = api.get(_repo_endpoint(repository, f"commits/{expected_merge}"))
+    parents = commit.get("parents", [])
+    if not parents or not SHA40_RE.fullmatch(parents[0].get("sha", "")):
+        raise RegistryError("FIRST_PARENT_MISMATCH", "actual merge first parent missing")
+    historical_base = parents[0]["sha"]
+    pre = validate_pre_merge(
+        api, genesis, schema, pr_number, expected_head, historical_base=historical_base,
+    )
     merged_at = _parse_utc(pr.get("merged_at", ""))
     approved_at = _parse_utc(pre.owner_comment_created_at)
     if not approved_at < merged_at:
         raise RegistryError("OWNER_APPROVAL_AFTER_MERGE", "approval must precede the actual GitHub merge")
-    commit = api.get(_repo_endpoint(repository, f"commits/{expected_merge}"))
-    parents = commit.get("parents", [])
-    if not parents or parents[0].get("sha") != pre.previous_index_commit:
+    if parents[0].get("sha") != pre.previous_index_commit:
         raise RegistryError("FIRST_PARENT_MISMATCH", "merge first parent is not the approved previous index commit")
     merged_raw, _ = _content_bytes(api, repository, genesis["registry_path"], expected_merge)
     candidate_raw, _ = _content_bytes(api, repository, genesis["registry_path"], expected_head)
@@ -718,7 +912,7 @@ def audit_first_parent_chain(
             associated = api.get(_repo_endpoint(repository, f"commits/{cursor}/pulls"))
             candidates = [
                 pr for pr in associated
-                if pr.get("merged_at") and pr.get("merge_commit_sha") == cursor and pr.get("base", {}).get("sha") == parent
+                if pr.get("merged_at") and pr.get("merge_commit_sha") == cursor
             ]
             if len(candidates) != 1:
                 raise RegistryError("INDEX_CHANGE_PR_UNPROVEN", f"index change {cursor} lacks one exact merged PR")
@@ -759,14 +953,27 @@ def reviewer_readiness(api: Api, genesis: Mapping[str, Any]) -> dict[str, Any]:
                 permissions.get("maintain") or role in {"write", "maintain", "admin"}):
             candidates.append(user)
     candidates.sort()
+    mode = genesis["registry_update_approval_mode"]
+    proposed_b = mode == "SINGLE_OWNER_AI_R0_ATTESTED"
     return {
-        "status": "CANDIDATES_PRESENT_NOT_APPROVED" if candidates else "HOLD",
-        "reason": None if candidates else "INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE",
+        "status": "HOLD" if proposed_b or not candidates else "CANDIDATES_PRESENT_NOT_APPROVED",
+        "reason": (
+            "B_CANDIDATE_REQUIRES_TAG_REPORT_CI_OWNER_APPROVAL_AND_MERGE_PROOF"
+            if proposed_b else
+            (None if candidates else "INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE")
+        ),
+        "registry_approval_mode": mode,
         "collaborator_count": len(members),
         "eligible_other_github_reviewers": candidates,
+        "b_machine_verifier_available": proposed_b,
+        "b_evidence_approved": False,
         "authorization_effect": "NONE",
         "fallback_approved": False,
-        "note": "Different AI windows using one GitHub owner account are not independent GitHub reviewers.",
+        "note": (
+            "B is an owner-posted AI review attestation, NOT an independent GitHub account "
+            "or proof of independent AI authorship. A release tag and bound evidence are "
+            "required for every registry update."
+        ),
     }
 
 

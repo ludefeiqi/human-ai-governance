@@ -84,4 +84,7 @@ registration unverified 项目不深扫私库；403/404/symlink/来源缺失只�
 **P2.1 冷恢复补充（候选）：** 外部插件需提供准确 policy Commit pin；新窗口必须从该不可变 Commit 校验运行的 validator、Schema 与 GENESIS，完成全部固定政策与完整审批链核验后，在同一次 `scan_authorized_main` 操作中针对有现行 R0 授权的项目 ID 完成读取；逐项读前读后和返回前都重核 `main` HEAD，不缓存或跨窗口重用任何扫描快照。带 `registration: verified` 的 YAML dict 没有受支持的扫描入口。未来动态索引变更的绿色 CI 仅证明 Schema precheck，不等于审批。缺不同 GitHub reviewer 标记 `REVIEWER_UNAVAILABLE/HOLD`。
 
 
-**P2 审查等级候选：** 当前 A 要求真实不同 GitHub 账号的 `APPROVED`；单 owner 时必须 HOLD。较低的 B（独立 AI R0 证据 + 同 HEAD CI + owner 准确批准 + 连续链验证）仅是另需用户对准确政策批准的方案；未更新机器验证程序及正式发布前，不可按 B 放行。
+**P2 审查等级候选：** 当前 A 要求真实不同 GitHub 账号的 `APPROVED`；单 owner 时必须 HOLD。较低的 B（独立 AI R0 证据 + 同 HEAD CI + owner 准确批准 + 连续链验证）仅是另需用户对准确政策批准的方案；虽然机器验证已在 Draft 候选实现，但未完成独立正式发布批准和新 Tag 生效前，不可按 B 放行。
+
+
+**B 级审批技术链路（未正式发布）：** 对未来普通发现登记 PR，以独立政策 GENESIS 指定的 A/B 模式为唯一开关。B 模式须在相同 HEAD 下完成 CI 最新成功、owner GitHub 评论承载 AI R0 证明、owner 不同评论明确限定用途批准，并在合并后读回实际 first-parent/原始索引。评论作者仅是 owner GitHub 账号，不能冒充另一个 GitHub reviewer 或真人独立认证。缺任一证据均 HOLD，业务项目私库读取/执行权限须另行授权。
