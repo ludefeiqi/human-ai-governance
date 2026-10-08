@@ -26,7 +26,7 @@
 | S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **PASS**（仅静态候选，不授权运行） |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **PASS**（仅候选纯静态上下文） |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **PASS**（仅 R0 观测及禁用路由候选） |
-| S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
+| S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **PASS**（仅合成规模、安全与单次 R0 读取证据） |
 | S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
 | S7 插件采用与冷启动 | 受控更新现有插件，并做真实新窗口恢复 | 正式政策已发布且插件采用另批 | Plugin CAS 更新、新 Chat 验收、真实项目恢复 | 当前 release ID 读回、真实冷启动、无自动 writer 转移 | **HOLD_FOR_SEPARATE_PLUGIN_APPROVAL** |
 
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：先对 S5 已实现的 10/100/1000 合成规模与安全验收候选核准确 GitHub CI、原始测量及独立只读审查；有阻断只返修实际命中范围。S5 未经独立 PASS 不得推进 S6；即便 S5 PASS，S6 发布与 S7 插件采用仍各须用户另行明确批准。
+当前 **唯一 NEXT**：S6 仅做准确 Draft 候选的只读发布材料整理与授权关口核对，并取得用户对发布对象、版本、Manifest、风险与操作边界的单独明确批准。在该批准前保持 S6 HOLD，不合并、不签发 Tag、不修改正式 main、亦不更新插件；S7 仍要求正式发布成功后另行批准。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -176,3 +176,11 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 唯一阻断：`registry/benchmark_route_scaling.py` 把 `json.dumps(sorted(cards))` 的 **仅 ID 列表**字符数命名为 `catalog_metadata_chars`，账本因此误标“全目录元数据成本”；原测试只断言递增而未断言计量范围。其余规模、权限/拒绝、无效路径和未实测边界未见新的阻断。
 - 限域修复：`catalog_id_index_chars` 专门计 ID 列表；`catalog_metadata_chars` 使用 `json.dumps(cards, sort_keys=True, ...)` 完整序列化 **ID+dependencies** 的合成图；测试逐 N 独立重建两套序列化并断言真实字符计数、依赖字段存在、完整成本大于 ID 成本；账本上表及说明按新读数修正。新实测 N=10/100/1000 完整元数据 `433 / 4303 / 43003` 字符，旧 `209 / 2279 / 22979` 仅保留为 ID 索引。
 - 现状态仍为 **S5 REVIEW_PENDING**。上述修复未重新打开 S4 或发布关口，须对准确新 HEAD 重新跑完整回归、CI 和独立只读复核；S6 与 S7 不得推进。
+
+
+## 16. S5 阻断闭环与准确候选通过（2026-10-09）
+
+- 修复准确 Commit `5159fc01e9a792467876590ccc0ba80aa3e0f314`，直接父系为首次 `REQUEST_CHANGES` 候选 `4a0dd830279f06161ff6a27792b3753b16bfc05a`。原生 GitHub Actions `P2 Registry Candidate Verification/validate` 已 completed/success，job `113476077567`，https://github.com/ludefeiqi/human-ai-governance/actions/runs/37825181730/job/113476077567；本地精确修复工作树全量 `395 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`；Manifest 49 项，原始字节 SHA256 `401cb8e2d34be109ac053b166ed2be15e83fb3e344df5c72af9e09bbac4319ec`。GitHub Tree `cb821574c5519eed29c0583b1ddce9775592f77e` 为 truncated=false，修复文件及 Manifest 均 `100644 blob`。
+- 独立 `gpt-5.6-sol` / read-only / ephemeral 对准确 `4a0dd83 → 5159fc0` 差分进行专项再审，结论 **APPROVE_DESIGN / NO BLOCKERS**；另行独立重建 N=10/100/1000 两种序列化长度，逐项等于 `ID: 209/2279/22979`、`full synthetic graph: 433/4303/43003`。第一次 `REQUEST_CHANGES` 已留在第 15 节，不覆盖不抹平。
+- 决定：**S5 PASS_SYNTHETIC_SCOPE**。仅对固定分布的 10/100/1000 合成目录安全及选取性能、现有三卡结构化上下文数量、一次真实 GitHub R0 读回有效；不证明正式策略全量网络验证的耗时/请求量、真实安装插件首个有效回答、真实模型 Token、任意规模/类别增长恒时或业务生产验收。真实全控制器端到端指标仍明确 **NOT_MEASURED**。
+- 总阶段：S0–S5 的限定候选验收 PASS；**S6 HOLD_FOR_EXPLICIT_RELEASE_APPROVAL、S7 HOLD_FOR_SEPARATE_PLUGIN_APPROVAL**。正式 `main` 仍 `7aced01a8c12e1bba5e810ce91ab425f4615d4a7` / v0.2.0；原 PR #6 仍 Draft。下一步仅准备 S6 精确候选发布审查材料并等待用户明确授权，不从本轮“推进”指令推导发布或插件安装许可。
