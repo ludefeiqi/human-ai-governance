@@ -401,8 +401,16 @@ def load_genesis(path: Path) -> dict[str, Any]:
         "EXTERNAL_GITHUB_REVIEW", "SINGLE_OWNER_AI_R0_ATTESTED",
     }:
         raise RegistryError("GENESIS_APPROVAL_MODE_INVALID", "registry approval mode is not recognized")
-    if value["unreleased_behavior"] != "HOLD_V0_1_SEMANTICS":
-        raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior is invalid")
+    # The tagged policy may only take effect after explicit verification and
+    # adoption. A v0.2.1 candidate never silently reverts to v0.1.0 semantics:
+    # keep the separately verified, already-adopted v0.2.0 release unchanged.
+    # Retain v0.2.0's original genesis for historical replay.
+    expected_unreleased = {
+        "v0.2.0": "HOLD_V0_1_SEMANTICS",
+        "v0.2.1": "HOLD_V0_2_0_SEMANTICS",
+    }[value["release_tag"]]
+    if value["unreleased_behavior"] != expected_unreleased:
+        raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior disagrees with the exact policy tag")
     identities = value["initial_project_identity_hashes"]
     if not isinstance(identities, dict) or not identities:
         raise RegistryError("GENESIS_IDENTITIES_INVALID", "initial identities must be a non-empty object")

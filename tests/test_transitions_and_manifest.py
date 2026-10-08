@@ -254,3 +254,49 @@ def test_precheck_is_not_registration_approval():
     report = candidate_schema_precheck(genesis, updated, raw)
     assert report["approval_verified"] is False
     assert report["writer_change_authorized"] is False
+
+
+@pytest.mark.parametrize(
+    ("tag", "fallback", "allowed"),
+    [
+        ("v0.2.0", "HOLD_V0_1_SEMANTICS", True),
+        ("v0.2.1", "HOLD_V0_2_0_SEMANTICS", True),
+        ("v0.2.1", "HOLD_V0_1_SEMANTICS", False),
+        ("v0.2.0", "HOLD_V0_2_0_SEMANTICS", False),
+        ("v0.2.1", "ENABLE_CANDIDATE_WITHOUT_TAG", False),
+        ("v0.2.1", "LATEST_IS_AUTOMATIC", False),
+        ("v0.2.0", "LATEST_IS_AUTOMATIC", False),
+    ],
+)
+def test_release_specific_unreleased_behavior_is_fail_closed(tmp_path: Path, tag, fallback, allowed):
+    import json
+    from tests.helpers import active_genesis
+    from registry.validate_registry import load_genesis
+    source = active_genesis()
+    # active_genesis is normally used as a pre-merge synthetic stub, with
+    # empty historical identities. Populate its required immutable identity
+    # shape so this test isolates only the version-specific fallback rule.
+    source["initial_project_identity_hashes"] = {"alpha": "sha256:" + "0" * 64}
+    source["release_tag"] = tag
+    source["unreleased_behavior"] = fallback
+    p = tmp_path / "GENESIS.json"
+    p.write_text(json.dumps(source, ensure_ascii=False), encoding="utf-8")
+    if allowed:
+        observed = load_genesis(p)
+        assert observed["release_tag"] == tag
+        assert observed["unreleased_behavior"] == fallback
+    else:
+        with pytest.raises(RegistryError) as err:
+            load_genesis(p)
+        assert err.value.code == "GENESIS_UNRELEASED_INVALID"
+
+
+def test_candidate_genesis_requires_previous_verified_v020_not_v010():
+    from registry.validate_registry import load_genesis
+    source = load_genesis(Path("registry/GENESIS.json"))
+    assert source["release_tag"] == "v0.2.1"
+    assert source["unreleased_behavior"] == "HOLD_V0_2_0_SEMANTICS"
+    # This is policy genesis metadata, not a runtime switch or user approval.
+    assert source["status"] == "ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG"
+    assert source["registry_branch"] == "main"
+    assert source["registry_path"] == "projects.yaml"

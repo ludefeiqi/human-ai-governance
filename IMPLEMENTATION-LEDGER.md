@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：S6 仅做准确 Draft 候选的只读发布材料整理与授权关口核对，并取得用户对发布对象、版本、Manifest、风险与操作边界的单独明确批准。在该批准前保持 S6 HOLD，不合并、不签发 Tag、不修改正式 main、亦不更新插件；S7 仍要求正式发布成功后另行批准。
+当前 **唯一 NEXT**：完成 S6 被否决的发布前候选修复与新 HEAD 复核：核 v0.2.1 未发布行为、准确 CI 和独立全局 R0 评审，并将 PR #6 发布说明/新增审查证据绑定最终候选；仍保持 Draft 和 S6 HOLD，未取得单独正式发布批准前不合并、不创建/移动 Tag、不更新 main 或插件。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -184,3 +184,13 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 独立 `gpt-5.6-sol` / read-only / ephemeral 对准确 `4a0dd83 → 5159fc0` 差分进行专项再审，结论 **APPROVE_DESIGN / NO BLOCKERS**；另行独立重建 N=10/100/1000 两种序列化长度，逐项等于 `ID: 209/2279/22979`、`full synthetic graph: 433/4303/43003`。第一次 `REQUEST_CHANGES` 已留在第 15 节，不覆盖不抹平。
 - 决定：**S5 PASS_SYNTHETIC_SCOPE**。仅对固定分布的 10/100/1000 合成目录安全及选取性能、现有三卡结构化上下文数量、一次真实 GitHub R0 读回有效；不证明正式策略全量网络验证的耗时/请求量、真实安装插件首个有效回答、真实模型 Token、任意规模/类别增长恒时或业务生产验收。真实全控制器端到端指标仍明确 **NOT_MEASURED**。
 - 总阶段：S0–S5 的限定候选验收 PASS；**S6 HOLD_FOR_EXPLICIT_RELEASE_APPROVAL、S7 HOLD_FOR_SEPARATE_PLUGIN_APPROVAL**。正式 `main` 仍 `7aced01a8c12e1bba5e810ce91ab425f4615d4a7` / v0.2.0；原 PR #6 仍 Draft。下一步仅准备 S6 精确候选发布审查材料并等待用户明确授权，不从本轮“推进”指令推导发布或插件安装许可。
+
+
+## 17. S6 发布前完整审查与候选最小修复（2026-10-09）
+
+- 本节为此前已批准的 **S0–S5 候选技术验收之外** 的首次跨完整 PR 发布级审查；起点精确 HEAD `f29b594d48a5cadc46e5923f75cf00d5cfee8da6`，正式 main 仍 `7aced01a8c12e1bba5e810ce91ab425f4615d4a7`，PR #6 Draft。独立 `codex exec --ephemeral --sandbox read-only` 全局审查结论 **REQUEST_CHANGES**；此前各阶段 PASS 不作为发布批准。
+- 实质阻断：候选 `registry/GENESIS.json` 指向 `release_tag=v0.2.1`，其 `unreleased_behavior=HOLD_V0_1_SEMANTICS` 却错误声明可回到 v0.1.0；`registry/validate_registry.py:load_genesis` 固定接受旧字段，违背 G2/CLIENT 和正式 v0.2.0 已采用的版本隔离规则。发布资料阻断：PR body 仍绑定旧 HEAD `43d9ce7…`、旧 Manifest 和 264 tests，原 GitHub review/issue 评论不能充当当前 HEAD 的发布审批。
+- 外部风险记录：main 的 branch protection 和 rulesets API 查询均为 HTTP 403（私库套餐/权限不支持读取配置），**不得宣称存在 GitHub 平台强制保护**；正式合并只能在用户精确发布批准后使用经实际核实的 head/main 前置、非 force 路径及写后核验。旧 `v0.2.0` annotated Tag unsigned，不能冒称签名；`v0.2.1` Tag 仍不存在，不得提前创建。
+- 用户本轮**仅批准** S6 候选修复及重新验收、允许在原 Draft 分支及 PR 发布说明/追加审查证据范围写入；**未批准**合并、正式 Tag、插件安装、项目接入或 writer/业务执行权限变更。
+- 最小修复：候选 GENESIS 的 v0.2.1 `unreleased_behavior` 改为 `HOLD_V0_2_0_SEMANTICS`；验证器按已标明的 `release_tag` 强制映射 `v0.2.0 → HOLD_V0_1_SEMANTICS`（历史兼容）和 `v0.2.1 → HOLD_V0_2_0_SEMANTICS`（此候选），错误交叉组合及试图自动启用/漂移的值一律 `GENESIS_UNRELEASED_INVALID`。`tests/helpers.py` 原 v0.2.0 测试基线保留原值，不能为了新候选更改历史测试源；在 `tests/test_transitions_and_manifest.py` 增加八项发布版本/负例及真实本候选 GENESIS 静态证明。
+- 候选发布流程下一动作：对**修复后精确新 HEAD**重跑完整固定文件/Manifest 与 403 项预计测试，核原生 GitHub CI；然后同步 Draft PR #6 的准确 HEAD、Manifest、运行证据及 **人类正式发布授权仍缺失** 的状态，进行独立全 PR R0 只读再审；必要时新增 owner 账号可追溯评论，**不得**冒充第二 GitHub reviewer、独立账号签名或正式 owner 发布批准。新审查若否决，局部 HOLD 和返修；通过亦仅进入 `REVIEW_READY_NEEDS_HUMAN_APPROVAL`，S6/S7 不能自动 PASS。
