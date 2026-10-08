@@ -230,3 +230,9 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 限域再次修复：增加单独可信根 expected_checksums_sha256（共六个参数），只允许 Manifest / evidence.json / SHA256SUMS.txt 三个命名附件；GitHub 每个资产 ID/state/size/digest 必须具体可核；经 GitHub read-only raw download 原始字节与独立核准 SHA256SUMS root、每行附件白名单摘要及 Manifest 原字节双向比对，任何额外/遗漏或摘要错误 HOLD。
 - 再次读取 main、annotated Tag 对象及 dereference、完整 Draft Release 元数据、所有 asset IDs/digests/sizes/updated_at 并与首次快照逐字段比较，输出其 deterministic SHA256。**这只能证明本次 R0 读取窗口稳定，不能杜绝预检后、发布前的并发变化，更不构成原子许可**；所有正式发布操作都要再次准确读回并经人类单独批准。
 - 通过真实数十条合成正反例、全仓测试、固定政策 SHA 与准确新 HEAD GitHub CI 后，再提交独立 reviewer；在其明确 APPROVE_DESIGN_CANDIDATE_ONLY 前保持 DRAFT/HOLD。
+
+## 22. 第三轮发布前校验复核与时间字段约束（2026-10-09）
+
+- 准确候选 HEAD bf9ac9ff96ba29dd42a25d9b5acbab693ea2a6b6 的独立 Codex gpt-5.6-sol R0 审查再次 REQUEST_CHANGES，唯一阻断：两次元数据读取中 GitHub release.updated_at 或任一 asset.updated_at 缺失/格式错误时，原实现 .get 返回 None 且两边可相等，易把双重缺失误判稳定。审查确认其他已否决的独立 checksum 根、三附件真实下载 SHA、真实 GitHub Tag 对象结构和 TOCTOU 范围已修复。
+- 本轮局部返修：读取 Release 和每个 asset 的 updated_at 时立即要求 GitHub 标准 UTC ISO8601 时间戳，验证真实日历有效性；缺字段、None、整数、无效日期和控制字段均 HOLD。首次和第二次不同时即 RELEASE_OR_REF_CHANGED_DURING_PREFLIGHT。新增缺失/错误与第二次日期漂移合成负例。
+- 已对现行已发布 v0.2.1 的 GitHub REST 实际读取核 release.updated_at、每个 asset.updated_at 均有标准 UTC 值；不能以真实 v0.2.1 immutable release 冒充 v0.2.2 draft 实时预检已运行。此候选仍不授予正式发布、Tag 或插件安装权，必须对准确新 HEAD 再跑 native CI 和独立只读审查。

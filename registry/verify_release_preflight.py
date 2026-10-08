@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -24,6 +25,7 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 ASSET_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 MAX_ASSET_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_BYTES = 32 * 1024 * 1024
+GH_ISO_UTC = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
 
 
 class ReleasePreflightError(ValueError):
@@ -33,6 +35,18 @@ class ReleasePreflightError(ValueError):
 def _must(ok: bool, reason: str) -> None:
     if not ok:
         raise ReleasePreflightError(reason)
+
+
+def _github_utc_timestamp(value: Any) -> str:
+    # GitHub REST release/asset updated_at must be a valid canonical
+    # UTC timestamp. Two missing values are NOT evidence of stable state.
+    _must(type(value) is str and GH_ISO_UTC.fullmatch(value) is not None,
+          "GITHUB_UPDATED_AT_MISSING_OR_INVALID")
+    try:
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as exc:
+        raise ReleasePreflightError("GITHUB_UPDATED_AT_MISSING_OR_INVALID") from exc
+    return value
 
 
 def _get(get_json: Callable[[str], Any], path: str) -> dict[str, Any]:
@@ -67,7 +81,7 @@ def _asset_map(release: dict[str, Any]) -> dict[str, dict[str, Any]]:
         _must(total<=MAX_TOTAL_BYTES,"RELEASE_ASSET_TOTAL_TOO_LARGE")
         mapping[name]={
             "id":asset_id,"name":name,"size":size,"digest":digest,
-            "state":value["state"],"updated_at":value.get("updated_at"),
+            "state":value["state"],"updated_at":_github_utc_timestamp(value.get("updated_at")),
         }
     return mapping
 
@@ -101,7 +115,7 @@ def _observed_snapshot(
             "target":release.get("target_commitish"),
             "draft":release.get("draft"),"immutable":release.get("immutable"),
             "prerelease":release.get("prerelease"),
-            "updated_at":release.get("updated_at"),
+            "updated_at":_github_utc_timestamp(release.get("updated_at")),
         },
         "assets":[assets[name] for name in sorted(assets)],
     }

@@ -135,6 +135,15 @@ def test_input_validation_before_network(change):
         "id":999,"name":"unapproved.bin","size":10,
         "digest":"sha256:"+"a"*64,"state":"uploaded"})),
     ("releases/123",lambda obj:obj["assets"][0].update({"id":False})),
+    ("releases/123",lambda obj:obj.pop("updated_at")),
+    ("releases/123",lambda obj:obj.update({"updated_at":None})),
+    ("releases/123",lambda obj:obj.update({"updated_at":123})),
+    ("releases/123",lambda obj:obj.update({"updated_at":"2026-02-30T01:02:03Z"})),
+    ("releases/123",lambda obj:obj.update({"updated_at":"2026-10-09 00:00:00"})),
+    ("releases/123",lambda obj:obj["assets"][0].pop("updated_at")),
+    ("releases/123",lambda obj:obj["assets"][1].update({"updated_at":None})),
+    ("releases/123",lambda obj:obj["assets"][2].update({"updated_at":"NOT_A_TIMESTAMP"})),
+
 ])
 def test_remote_unapproved_release_metadata_denied(suffix,mutation):
     data,_=fixture_data()
@@ -189,11 +198,11 @@ def test_remote_manifest_modified_but_asset_same_is_rejected():
 
 
 @pytest.mark.parametrize("component",[
-    "branches/main","git/ref/tags/"+TAG,"git/tags/"+TAG_SHA,"releases/123",
+    "branches/main","git/ref/tags/"+TAG,"git/tags/"+TAG_SHA,"releases/123","asset_timestamp",
 ])
 def test_ref_or_asset_metadata_drift_on_second_read_is_blocked(component):
     data,blobs=fixture_data()
-    key=f"repos/{REPO}/{component}"
+    key=f"repos/{REPO}/{component}" if component!="asset_timestamp" else f"repos/{REPO}/releases/123"
     count=[0]
     def changing_get(url):
         obj=copy.deepcopy(data[url])
@@ -203,6 +212,8 @@ def test_ref_or_asset_metadata_drift_on_second_read_is_blocked(component):
                 if component=="branches/main":obj["commit"]["sha"]="e"*40
                 elif component.startswith("git/ref"):obj["object"]["sha"]="a"*40
                 elif component.startswith("git/tags"):obj["object"]["sha"]="a"*40
+                elif component=="asset_timestamp":
+                    obj["assets"][0]["updated_at"]="2026-10-09T00:00:01Z"
                 else:
                     obj["assets"][0]["id"]=777
         return obj
