@@ -221,5 +221,12 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 ## 20. GitHub 原生审查第一次拒绝与最小返修（2026-10-09，未发布）
 
 - Draft PR #8 第一候选 HEAD 79727dfeb649958e2e20c9e824bd55dcdc0068ce，CI validate job 113533286075 completed/success，但独立只读 Codex gpt-5.6-sol 给出 REQUEST_CHANGES：① PR 默认签出 refs/pull/8/merge 合成合并树而非准确源 HEAD；API 的 check.head_sha 不能证明本地签出的是源 HEAD。② Immutable Release 仅 publish 后检查，没有锁定前参数化草稿附件核验。该否决保留，不以 413 tests PASS 抵消。
-- 限域返修：CI checkout 精确 github.event.pull_request.head.sha，运行时 fail-closed 断言 git rev-parse HEAD == PR_HEAD，差分也对源 HEAD。新增 registry/verify_release_preflight.py，接受唯一 repo、准确 Tag 对象和 Commit、Release draft ID、原始 Manifest SHA、每个 Release asset 的 SHA256，并核 Genesis/main；workflow_dispatch 仅将 5 个用户输入送入环境变量，绝不直接拼接进 shell；通过后在正式精确 HEAD 运行 audit-main，不自动发布。新增正负例验证。
+- 限域返修：CI checkout 精确 github.event.pull_request.head.sha，运行时 fail-closed 断言 git rev-parse HEAD == PR_HEAD，差分也对源 HEAD。新增 registry/verify_release_preflight.py，接受唯一 repo、准确 Tag 对象和 Commit、Release draft ID、原始 Manifest SHA、每个 Release asset 的 SHA256，并核 Genesis/main；workflow_dispatch 仅将 6 个外部用户输入送入环境变量，绝不直接拼接进 shell；通过后在正式精确 HEAD 运行 audit-main，不自动发布。新增正负例验证。
 - 生效边界：workflow_dispatch 必须先被 GitHub default branch 采用才可实际触发；当前仅是未批准的候选，不能宣称正式平台 preflight 已部署或 main/Tag rules 强制保护已启用。任一审查阻断保留 HOLD，不合并。
+
+## 21. 发布前只读校验第二轮拒绝及独立信任根修复（2026-10-09）
+
+- Draft PR #8 第二候选精确 HEAD 2f20f3fe88043de99d4516115a4d05e8d6ec3f97 的原生 validate 真实签出准确源 SHA、437 tests PASS；但独立只读 Codex gpt-5.6-sol 再次 REQUEST_CHANGES：原发布前校验器对 SHA256SUMS.txt 与非 Manifest 附件只做 digest 形式检查，未与独立可信摘要比对，亦未下载所有实际资产；另未在 R0 预检末二次核 main、Tag、Release 与附件快照，存在同次读取窗口内的 TOCTOU 不可见风险。此前第一轮拒绝、第一次修复 PASS 范围及本次再次否决均保留，不删除历史。
+- 限域再次修复：增加单独可信根 expected_checksums_sha256（共六个参数），只允许 Manifest / evidence.json / SHA256SUMS.txt 三个命名附件；GitHub 每个资产 ID/state/size/digest 必须具体可核；经 GitHub read-only raw download 原始字节与独立核准 SHA256SUMS root、每行附件白名单摘要及 Manifest 原字节双向比对，任何额外/遗漏或摘要错误 HOLD。
+- 再次读取 main、annotated Tag 对象及 dereference、完整 Draft Release 元数据、所有 asset IDs/digests/sizes/updated_at 并与首次快照逐字段比较，输出其 deterministic SHA256。**这只能证明本次 R0 读取窗口稳定，不能杜绝预检后、发布前的并发变化，更不构成原子许可**；所有正式发布操作都要再次准确读回并经人类单独批准。
+- 通过真实数十条合成正反例、全仓测试、固定政策 SHA 与准确新 HEAD GitHub CI 后，再提交独立 reviewer；在其明确 APPROVE_DESIGN_CANDIDATE_ONLY 前保持 DRAFT/HOLD。

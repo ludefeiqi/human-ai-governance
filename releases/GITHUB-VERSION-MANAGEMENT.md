@@ -26,7 +26,7 @@
 - 主检查 validate 跑 pytest、validate-local、validate-candidate 与适用完整差分检查。candidate/schema PASS 不产生 Tag、项目 writer、业务动作权限。
 - audit-published 仅 Tag push / Release published 触发：读取真实 annotated Tag 对象、解引用至 checked out Commit、校对 GENESIS.release_tag、真实运行 audit-main；在 Release published 时再要求 immutable=true 和带 SHA256 digest 的对应 MANIFEST Release 附件。整个流程只读，不修改 Source、Release、Tag、Repo 或插件。
 - pull_request 的 validate 必须按 GitHub 官方 head.sha checkout PR 真实源 Commit（默认 refs/pull/N/merge 是合成合并树）；运行时和差分检查都对 PR_HEAD 严格 fail-closed。来源验证与模拟合并集成测试分别命名，不以 check API 的 head_sha 代替真实 checkout 证明。
-- 正式发布前支持手动 workflow_dispatch 的 preflight-draft：准确 tag、numeric draft Release ID、Tag 对象 SHA、Commit、原始 MANIFEST SHA256 共五项。只允许真实已有 draft，核 main/GENESIS/Tag/Commit/原始清单/每个资产 digest 和必需的 MANIFEST、SHA256SUMS；再在准确已核 Commit 运行 audit-main。preflight 不发布、不更新 Tag、无 write token，预检通过仍非用户发布批准。
+- 正式发布前支持手动 workflow_dispatch 的 preflight-draft：准确 tag、numeric draft Release ID、Tag 对象 SHA、Commit、原始 MANIFEST SHA256、由用户独立核定的 SHA256SUMS.txt 原始 SHA256 **六项**。只允许真实已有 draft，核 main/GENESIS/Tag/Commit/原始清单；只接受 Manifest、Release evidence、SHA256SUMS 三个附件，下载每个附件原始字节，核全部 SHA256、由可信外部 checksum 根绑定的白名单及 GitHub asset 元数据。结束前重复 GET main/Tag/Release ID/asset ID/size/digest/updated_at，任何漂移即 HOLD；输出整个读回快照 SHA256 供发布时再次对照。纯 R0 预检不是原子锁，检查后仍可能被他人修改；发布前必须重复精确读回并需要人类批准，绝不能因为预检结果自动发布。随后在准确已核 Commit 运行 audit-main；无 write token。
 - workflow_dispatch 根据 GitHub 官方平台要求，须在 default branch 的正式工作流中存在才可被触发。因此该 v0.2.2 草稿仅能独立测试其静态规则及 PR validate；首次 v0.2.2 发布前无法实际调用草稿里的新 Dispatch，必须沿现有人工精确 Tag/Manifest/草稿资产读回机制；不得冒称已部署的 preflight。
 - Tag push 与 Release published 可能各触发一次只读审计；这是分离来源与不可变发布的有意双验证。
 - 在 Pro 强制规则配置完成前：即使 CI 失败，也只能给出报警/停止建议，**不能阻止已发生的 direct main push**；因此本候选不自动合并发布、不伪报强制保护到位。

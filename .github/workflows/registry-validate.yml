@@ -33,6 +33,10 @@ on:
         description: Exact SHA256 of raw MANIFEST.sha256 (64 hex)
         required: true
         type: string
+      expected_checksums_sha256:
+        description: Independently approved raw SHA256SUMS.txt SHA256 (64 hex)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -111,6 +115,7 @@ jobs:
       EXPECTED_TAG_SHA: ${{ inputs.expected_tag_object_sha }}
       EXPECTED_COMMIT: ${{ inputs.expected_commit }}
       EXPECTED_MANIFEST: ${{ inputs.expected_manifest_sha256 }}
+      EXPECTED_CHECKSUMS: ${{ inputs.expected_checksums_sha256 }}
     steps:
       - name: Check out the actual default branch (must equal requested policy Commit)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -135,7 +140,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m registry.verify_release_preflight             --tag "$RELEASE_TAG"             --release-id "$RELEASE_ID"             --expected-tag-object-sha "$EXPECTED_TAG_SHA"             --expected-commit "$EXPECTED_COMMIT"             --expected-manifest-sha256 "$EXPECTED_MANIFEST"
+          python -m registry.verify_release_preflight \
+            --tag "$RELEASE_TAG" \
+            --release-id "$RELEASE_ID" \
+            --expected-tag-object-sha "$EXPECTED_TAG_SHA" \
+            --expected-commit "$EXPECTED_COMMIT" \
+            --expected-manifest-sha256 "$EXPECTED_MANIFEST" \
+            --expected-checksums-sha256 "$EXPECTED_CHECKSUMS"
       - name: Independently verify policy and authorized dynamic source
         shell: bash
         run: |

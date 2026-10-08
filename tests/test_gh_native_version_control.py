@@ -43,6 +43,7 @@ def test_required_pr_check_is_not_filtered_and_publication_triggers_are_read_onl
     assert set(w["on"]["workflow_dispatch"]["inputs"])=={
         "tag", "release_id", "expected_tag_object_sha",
         "expected_commit", "expected_manifest_sha256",
+        "expected_checksums_sha256",
     }
 
 
