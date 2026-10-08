@@ -103,7 +103,11 @@ def benchmark_synthetic_scales(
     results = []
     for n in sizes:
         cards = synthetic_catalog(n)
-        raw_metadata = json.dumps(sorted(cards), ensure_ascii=False, separators=(",", ":"))
+        # Distinguish the bare-ID index from the complete synthetic graph
+        # metadata (IDs PLUS dependency lists). Never label the ID list as
+        # the full catalog cost.
+        raw_id_index = json.dumps(sorted(cards), ensure_ascii=False, separators=(",", ":"))
+        raw_metadata = json.dumps(cards, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         shard_count, root_shard_chars, selected_shard_chars = _synthetic_shard_index(cards)
         # Full catalog graph integrity remains a separate up-front operation;
         # a cycle in an *unselected* extra card must not silently escape.
@@ -124,6 +128,7 @@ def benchmark_synthetic_scales(
         results.append({
             "catalog_size": n,
             "catalog_metadata_chars": len(raw_metadata),
+            "catalog_id_index_chars": len(raw_id_index),
             "synthetic_root_shard_count": shard_count,
             "synthetic_root_shard_index_chars": root_shard_chars,
             "synthetic_selected_shard_ids_chars": selected_shard_chars,

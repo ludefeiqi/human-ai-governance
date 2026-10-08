@@ -35,6 +35,15 @@ def test_s5_metadata_cost_is_visible_and_not_misreported_as_model_context():
     chars = [r["catalog_metadata_chars"] for r in rows]
     assert chars[0] < chars[1] < chars[2]
     assert chars[2] > 10 * chars[0]
+    for item in rows:
+        # Independently reconstruct the TWO distinct serialization targets.
+        graph = synthetic_catalog(item["catalog_size"])
+        complete_metadata = json.dumps(graph, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        only_ids = json.dumps(sorted(graph), ensure_ascii=False, separators=(",", ":"))
+        assert item["catalog_metadata_chars"] == len(complete_metadata)
+        assert item["catalog_id_index_chars"] == len(only_ids)
+        assert item["catalog_metadata_chars"] > item["catalog_id_index_chars"]
+        assert '"dependencies"' in complete_metadata
     assert rows[2]["selected_context_chars"] == rows[0]["selected_context_chars"]
 
 

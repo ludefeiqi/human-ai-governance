@@ -157,14 +157,22 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 新增 `registry/benchmark_route_scaling.py` 与 `tests/test_route_scaling.py`，三组 **10/100/1000 合成能力元数据**固定同一请求 `codex.observe + project.restore`、同一三项相关能力与依赖图、同一 Python 会话及 30 次测量。**先完整检查所有合成 N 项依赖图**（未选中的坏依赖/环也要 fail-closed），再单独计最小闭包选择时间；所选上下文来自真实 S2 已禁用三张卡的序列化正文，不把全部合成目录冒充模型正文。
 - 单轮结果（仅此环境/样本，含性能噪声）：
 
-  | 合成 N | 全目录元数据字符 | 合成根分片索引字符 | 所选三卡正文字符 | 无关正文数 |
-  | ---: | ---: | ---: | ---: | ---: |
-  | 10 | 209 | 150 | 3450 | 0 |
-  | 100 | 2279 | 151 | 3450 | 0 |
-  | 1000 | 22979 | 152 | 3450 | 0 |
+  | 合成 N | 能力 ID 索引字符 | 完整合成元数据字符（ID+依赖） | 合成根分片索引字符 | 所选三卡正文字符 | 无关正文数 |
+  | ---: | ---: | ---: | ---: | ---: | ---: |
+  | 10 | 209 | 433 | 150 | 3450 | 0 |
+  | 100 | 2279 | 4303 | 151 | 3450 | 0 |
+  | 1000 | 22979 | 43003 | 152 | 3450 | 0 |
 
-- 对同一个 synthetic.extra 前缀的**假设性**二级目录分片，根摘要维持四个分组，选中分片索引为 48 字符；这是合成 taxonomy 的实验，不是现有 S3 真实分片装载已部署，也不证明任意类别增长都恒时或无需完整政策完整性校验。若实际类别数量增长，必须另行独立实施分片与实测。全量原目录索引字符会随 N 增长，成本明确未隐瞒。
+- 对同一个 synthetic.extra 前缀的**假设性**二级目录分片，根摘要维持四个分组，选中分片索引为 48 字符；这是合成 taxonomy 的实验，不是现有 S3 真实分片装载已部署，也不证明任意类别增长都恒时或无需完整政策完整性校验。若实际类别数量增长，必须另行独立实施分片与实测。完整合成目录元数据与单纯 ID 索引字符都会随 N 增长，二者单独披露、不混用；成本明确未隐瞒。
 - 单次 Python monotonic 本地微测量：N=1000 全合成元数据依赖预检约 1.51 ms；仅最小选择 30 次中位数约 0.0033 ms（对模型/远端延迟毫无代表性）。`TOKEN_UNKNOWN`，正式启动时 `real_remote_fetch_count`、`real_probe_count`、`real_time_to_first_valid_result_ms` 均 `NOT_MEASURED`；本合成实验 `synthetic_network_calls=0`、`external_side_effects=0`。
 - **单独真实 R0 GitHub 读取**：对精确已验证 Commit `08385e410d127247467c1c07cc01d12b66793efe` 的 `IMPLEMENTATION-LEDGER.md` 发起 `gh api --method GET`，真实返回 Blob `e9c17006cb41de12aaa6d9dd980656159831c485` 与 Git 树预期一致、正文含 S4 PASS 与 S5 NEXT；本机单次从请求到核真正文 **1837.34 ms**，已知 GitHub GET 计数 1、无业务写操作。该数字是 GitHub 读取探针耗时，**不是**完整 Global Controller / ChatGPT 的 time-to-first-valid-result，也不代替正式政策完整文件远端校验。
 - 27 项新增 S5 安全/规模测试覆盖 N/重复次数边界、上下文最小加载、metadata 线性增长、合成分片局限、未选中依赖环/未知模块完整预检、S2 未授权卡/Source Lock 篡改、明确禁止网络/子进程/真实副作用以及返回状态的真实类型；继续保留 S2/S3/S4 既有拒绝与失败恢复测试。全量 **395 passed**，`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`（approval_verified=false、registry_trusted=false）；Manifest 固定文件 49 项且原字节摘要重算。
 - 阶段裁定：**S5 IMPLEMENTED_CANDIDATE / REVIEW_PENDING**。必须对准确新 HEAD GitHub CI 和独立设计复核再核对；证据边界以合成规模安全、候选本地计算与一次真实 GitHub R0 为止。不得冒称正式 plugin 容量/平均速度或模型 token 实测。
+
+
+## 15. S5 首次独立复核阻断与最小返修（2026-10-09）
+
+- 首次提交 `4a0dd830279f06161ff6a27792b3753b16bfc05a`：原生 GitHub Actions `validate` completed/success，job `113474236360`，https://github.com/ludefeiqi/human-ai-governance/actions/runs/37824650783/job/113474236360；独立 Codex `gpt-5.6-sol` / read-only 精确差分复审返回 **REQUEST_CHANGES**。该否决真实保留，不用 CI success 抵消。
+- 唯一阻断：`registry/benchmark_route_scaling.py` 把 `json.dumps(sorted(cards))` 的 **仅 ID 列表**字符数命名为 `catalog_metadata_chars`，账本因此误标“全目录元数据成本”；原测试只断言递增而未断言计量范围。其余规模、权限/拒绝、无效路径和未实测边界未见新的阻断。
+- 限域修复：`catalog_id_index_chars` 专门计 ID 列表；`catalog_metadata_chars` 使用 `json.dumps(cards, sort_keys=True, ...)` 完整序列化 **ID+dependencies** 的合成图；测试逐 N 独立重建两套序列化并断言真实字符计数、依赖字段存在、完整成本大于 ID 成本；账本上表及说明按新读数修正。新实测 N=10/100/1000 完整元数据 `433 / 4303 / 43003` 字符，旧 `209 / 2279 / 22979` 仅保留为 ID 索引。
+- 现状态仍为 **S5 REVIEW_PENDING**。上述修复未重新打开 S4 或发布关口，须对准确新 HEAD 重新跑完整回归、CI 和独立只读复核；S6 与 S7 不得推进。
