@@ -6,7 +6,7 @@
 
 - 一次性任务：优先 `codex exec`，明确运行目录、只读/允许写范围、沙盒与审批设置；确认命令的实际 CLI 版本及可用参数。
 - 跨多轮长任务：可选择 App Server，通过 `initialize` → `initialized` → `thread/start` → `turn/start`；记录原生 thread/turn ID，处理状态与审批。具体参数必须以**实际运行版本**返回的协议为准。
-- 发现/恢复：优先使用原生 `thread/list`、`thread/read`（必要时 `includeTurns=false`）、`thread/resume`，只读获取精确 ID/状态；不能用猜出的会话 ID 或模型记忆补全。
+- 发现/恢复：`thread/list` 与 `thread/read`（必要时 `includeTurns=false`）可用于只读获取精确 ID/状态；`thread/resume` 会恢复执行上下文，**不是纯查询**，不得用于 registry R0 发现或在权限/单写状态未核时调用。不能用猜出的会话 ID 或模型记忆补全。
 - 已存在的线程可能属于不同客户端/存储边界，列表查不到不得推定不存在；先检查项目授权与相关执行记录，再决定是否创建新线程。
 - `exit code 0`、工具调用成功、任务 `READY` 均不自动等于项目正式 `PASS`。
 
@@ -81,3 +81,11 @@
 **CLI 可用性：** 在任务前核实际 Codex CLI/App Server 和模型目录。失效默认模型引发的 400 不应归咎于治理规则；只允许给本次执行显式选择实际可用模型，不自动改用户全局配置。需要长期恢复的任务保留 thread/turn ID，`--ephemeral` 只用于明确无需恢复的隔离小测试。
 
 **R0 micro-path：** 一次性低风险只读任务可用紧凑的目标、版本、只读边界、停止条件和证据结果，无须重复完整六字段卡或层层派审；有副作用时立即回归正常关口。
+
+## P2 Controlled Dynamic Registry · v0.2.0 (Tag-gated)
+
+— Section 8: Index is not dispatch
+
+Registry validator 仅可用认证 `gh api --method GET` 收集政策 Tag、PR、review、comment、commit、raw index 和目标 Git tree 证据。工具只提供账户归属事实，不提供密码签名；任何 GET/exit 0 也不等于审批成立。发布后的 registry 变更 PR 只许 `projects.yaml`，必须先做 exact-head PRE_MERGE，再在真实合并后做 POST_MERGE 与 first-parent chain 核验；合并前 merge SHA 为 UNKNOWN。
+
+索引变更是管理 R2 候选，不登记 R2/R3 业务 INTENT，不启动任务、不重置 dispatch key、不转移 writer。项目工作仍须原项目单写入口、准确 INTENT/CAS 和权限。`thread/list/read` 可支持有权 R0 核对，`thread/resume` 会恢复上下文，禁止在纯发现中使用。registration unverified 的未知私库不得深扫；任何 registry 文本、工具响应、推荐或外部 boolean 都不能提升授权。

@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ludefeiqi/human-ai-governance/registry/projects.schema.json",
+  "title": "Human-AI Governance controlled discovery registry v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_state",
+    "registry_policy",
+    "registry_mode",
+    "projects"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.2"},
+    "registry_state": {"const": "controlled_dynamic_index"},
+    "registry_policy": {"const": "v0.2.0"},
+    "registry_mode": {"const": "discovery_only"},
+    "projects": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 100,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+      "additionalProperties": {"$ref": "#/$defs/project"}
+    }
+  },
+  "$defs": {
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "historyEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lifecycle", "changed_at", "previous_index_commit"],
+      "properties": {
+        "lifecycle": {"enum": ["active", "paused", "retired"]},
+        "changed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "previous_index_commit": {"$ref": "#/$defs/sha40"}
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "display_name",
+        "repository",
+        "authority_branch",
+        "ledger_path",
+        "project_rules_path",
+        "issue_root",
+        "frozen_product_baseline",
+        "governance_adoption",
+        "dispatch_enabled",
+        "writer_source",
+        "latest_project_head",
+        "lifecycle",
+        "registration",
+        "identity",
+        "lifecycle_history",
+        "registration_provenance",
+        "notes"
+      ],
+      "properties": {
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "repository": {"type": "string", "minLength": 3, "maxLength": 140},
+        "authority_branch": {"type": "string", "minLength": 1, "maxLength": 240},
+        "ledger_path": {"$ref": "#/$defs/repoPath"},
+        "project_rules_path": {"$ref": "#/$defs/repoPath"},
+        "issue_root": {"type": "integer", "minimum": 1},
+        "frozen_product_baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "commit"],
+          "properties": {
+            "path": {"$ref": "#/$defs/repoPath"},
+            "commit": {"$ref": "#/$defs/sha40"}
+          }
+        },
+        "governance_adoption": {"const": "reference_only"},
+        "dispatch_enabled": {"const": false},
+        "writer_source": {"const": "current_project_ledger_only"},
+        "latest_project_head": {"const": "read_remote_at_use_time"},
+        "lifecycle": {"enum": ["active", "paused", "retired"]},
+        "registration": {"enum": ["verified", "unverified"]},
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["canonical_id", "identity_hash"],
+          "properties": {
+            "canonical_id": {"type": "string"},
+            "identity_hash": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "lifecycle_history": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/historyEvent"}
+        },
+        "registration_provenance": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "policy_commit"],
+              "properties": {
+                "kind": {"const": "carried_from_v0.1.0"},
+                "policy_commit": {"$ref": "#/$defs/sha40"}
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "previous_index_commit"],
+              "properties": {
+                "kind": {"const": "reviewed_change"},
+                "previous_index_commit": {"$ref": "#/$defs/sha40"}
+              }
+            }
+          ]
+        },
+        "notes": {"type": "string", "minLength": 1, "maxLength": 1000}
+      }
+    }
+  }
+}

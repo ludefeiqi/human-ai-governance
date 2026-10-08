@@ -63,10 +63,31 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 
 > 只读恢复项目 `PROJECT_ID`。请先实际读取已采用的独立治理仓库版本、projects.yaml、项目最新权威账本/AGENTS.md/固定合同，再按准确 ID 查询 Codex 线程和运行状态。输出最新 HEAD、现任单写负责人、仍在运行任务、有效授权和唯一 NEXT；凡版本、权限、任务或资源状态有冲突均停止。未经另行明确授权，不写仓库、不发任务、不接管 writer。
 
-## 7. 不可用状态与不重复执行（对 §2、§5 的明确例外）
+## 7. 不可用状态与不重复执行（对 `2、`5 的明确例外）
 
 - `POLICY_UNAVAILABLE`：治理私库或该项目**实际采用的准确治理版本**无法远端核实；只读报告，不凭缓存、旧窗口或记忆宣称最新，不派工、不变更 writer。
 - `DISPATCH_CONFLICT`：已有 `(project_id,dispatch_id)`，但任务载荷摘要不同，停止；相同只读恢复既有状态和原线程/回执。
 - `DISPATCH_UNPROVEN`：新 R2/R3/副作用任务无法在获批项目**现有唯一权威入口**原子登记 `INTENT` 并读回，禁止派发，也不增设第二账本。
 - `HEAD_CONFLICT`：写入瞬间服务端拒绝旧 expected HEAD，停止；不得 force、自动 rebase 或用新工具规避。
 - 旧窗口失联不证明旧进程/云任务结束；新窗口先查唯一执行键、旧 writer、共享资源和剩余批准，无法确证时仅只读，不能抢写。
+
+## P2 Controlled Dynamic Registry · v0.2.0 (Tag-gated)
+
+— Section 8: Cross-window dynamic discovery
+
+每次明确的冷启动按固定顺序：解引用并验证 v0.2.0 annotated Tag/Manifest/GENESIS → 固定 `main` H1 → 严格读取 H1 的 index raw bytes → 从正式 genesis commit 沿 first-parent 核全部 index 变更和 pre/post 审批 → 只对 externally verified 且 active、并有现行读取授权的条目核项目 branch HEAD、AGENTS、ledger 与固定合同 Git mode → 再读 `main` H2。H1≠H2 时只可从头重做一次；再次漂移则整个快照 `HOLD`，不得拼接两代数据。
+
+registration unverified 项目不深扫私库；403/404/symlink/来源缺失只阻断该项目，继续其它已授权 R0 项目。报告必须分别给出 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每个维度合计 `registry_total`。项目账本实际 NEXT 单列 `DECLARED`；协调者建议单列 `INFERRED governance recommendation`；未读到就是 UNKNOWN。
+
+两个窗口即使得到相同索引也仍是 R0 observers。发现、`thread/list/read` 或 includeTurns=false 不产生 writer；`thread/resume` 会恢复执行上下文，不是本流程的只读查询。索引不得自动 adopted、dispatch 或 writer handoff；任何接管仍须项目自身权威流程与用户准确授权。
+
+**P2.1 冷恢复补充（Tag 验证后适用）：** 外部插件需提供准确 policy Commit pin；新窗口必须从该不可变 Commit 校验运行的 validator、Schema 与 GENESIS，完成全部固定政策与完整审批链核验后，在同一次 `scan_authorized_main` 操作中针对有现行 R0 授权的项目 ID 完成读取；逐项读前读后和返回前都重核 `main` HEAD，不缓存或跨窗口重用任何扫描快照。带 `registration: verified` 的 YAML dict 没有受支持的扫描入口。未来动态索引变更的绿色 CI 仅证明 Schema precheck，不等于审批。缺不同 GitHub reviewer 标记 `REVIEWER_UNAVAILABLE/HOLD`。
+
+
+**P2 审查等级：** A 要求不同 GitHub 账号的 `APPROVED`，单 owner 时不可通过 A。B 是较低保证等级（AI R0 证据 + 同 HEAD CI + owner 准确批准 + 连续链），只有已验证的正式 `v0.2.0` GENESIS 选择 B 且操作对象是发布后的普通登记 PR 才可使用；不得把新候选或 CI 成功当自动放行。
+
+
+**B 级审批技术链路（仅正式政策激活后）：** 对未来普通发现登记 PR，以独立政策 GENESIS 指定的 A/B 模式为唯一开关。B 模式须在相同 HEAD 下完成 CI 最新成功、owner GitHub 评论承载 AI R0 证明、owner 不同评论明确限定用途批准，并在合并后读回实际 first-parent/原始索引。评论作者仅是 owner GitHub 账号，不能冒充另一个 GitHub reviewer 或真人独立认证。缺任一证据均 HOLD，业务项目私库读取/执行权限须另行授权。
+
+
+**政策信任锚安全更新：** 当 B 级正式受用户准确批准并发布后，所有 pre/post-merge 与 first-parent 历史审计均须取得**外部已信任政策 Commit pin**，逐项读回官方 Tag 与固定文件哈希后才读取 GENESIS 中的审查模式。不可用 caller JSON、未发布候选或最近的 CI 成功结果替代政策锚。在 `v0.2.0` 正式 Tag、政策 Commit 和运行端 pin 全部确认前，旧版 v0.1.0 仍有效，新版内容只能作为候选 R0。

@@ -69,7 +69,7 @@
 
 失败优先级：**不扩大权限 > 不损坏真实业务/证据 > 不重复派工 > 最快执行**。回报冲突所需最小事实并停在原位置。
 
-## 9. 并发 CAS、目录安全与启用批准（对 §3–§8 的补充判据）
+## 9. 并发 CAS、目录安全与启用批准（对 `3–`8 的补充判据）
 
 **分支级原子 CAS：** 对共享权威状态写入先取得 expected HEAD；用以该 HEAD 为唯一父提交的 commit + **非强制 fast-forward `git push`**，或经实际核验支持 `expected_sha` 的 ref 更新。远端 HEAD 漂移须由服务端拒绝并返回 `HEAD_CONFLICT`；不自动 rebase、force push、合并旧授权或重放执行。多文件变更一个 commit 原子发布。GitHub Contents API 的文件 blob `sha` 不是整个分支的 CAS；即使 CAS 通过，也**不等于**旧 writer、浏览器和生产资源已被排他锁定。
 
@@ -78,3 +78,26 @@
 **激活批准回执：** 正式发布治理版本须持有并读回独立的非敏感记录：candidate commit、MANIFEST SHA256、独立审核回执/结论、用户明确发布批准的来源/时间、准确 release PR/commit/tag 与生效范围（默认仅治理仓库，项目采用集合为空）。任何缺项或冲突为 `APPROVAL_MISMATCH`，停止；宽泛 GitHub 写入许可不是“启用某版治理规则”的替代凭据。各项目采用和 writer 转移另行批准、另行更新该项目账本。
 
 **R0 快速通道：** 已明确范围的单次只读查询，只保留目标、准确来源/版本、只读范围、停止条件和简短结果即可；不要求完整六字段卡或独立审查。共享写入、权限、认证和高影响操作禁止走此通道。
+
+## P2 Controlled Dynamic Registry · v0.2.0 (effective only after verified Tag)
+
+— proposed Section 10: Controlled dynamic discovery registry
+
+v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immutable GENESIS、完整独立审查和用户发布批准都被读回后，才可启用 `main/projects.yaml` 的动态发现语义。Tag 未发布、轻量 Tag、清单或 GENESIS 不符时保持 v0.1.0；不得因 main 出现新文件而自动升级。政策 Manifest 固定政策文档、GENESIS、validator、Schema、锁定依赖和测试，不包含以后变化的 `projects.yaml`；GENESIS 则固定初始 index raw SHA256、owner account、仓库、Tag、branch、path 和初始 identity hashes。
+
+动态索引唯一作用是 discovery。Schema 机械固定 `governance_adoption: reference_only`、`dispatch_enabled:false` 和 `writer_source:current_project_ledger_only`；登记不能自动 adopted、派工、创建 INTENT、恢复 thread、改变 writer 或覆盖项目权威账本。`projects.yaml` 中的 verified/approved 字样不是外部证据。
+
+正式索引历史以 release genesis commit 为根沿 `main` first-parent 连续验证。每个 index 变化与上一份 approved index 比较：ID 不得物理删除或改用途；repository/identity hash 不得替换；retired 保留 tombstone、identity、退役时间、上一索引 commit 和追加历史；同身份 re-activate 只可追加事件。每个发布后 registry PR 只许改变 `projects.yaml`，并须通过 exact-head 独立 APPROVED review、owner GitHub comment 的 head/index/diff/IDs/time 绑定，以及合并后 actual merge commit/first-parent/raw index 再核。合并前不得预言 merge SHA；证据不足一律 HOLD，不降低保护。
+
+读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以当前经正式 Tag 验证的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。
+
+**P2.1 绑定规则：** owner 批准不得预填未知的 GitHub `created_at`。A 模式要求不同 GitHub actor 在准确 HEAD 的 `APPROVED` Review；B 模式必须有准确同 HEAD CI、owner 所发布的 AI R0 证明以及独立的 owner 批准评论，并证明 `CI < AI 证据 < owner < merge`。两者均使用实际 Tag/Manifest/GENESIS 及完整 first-parent 链核验；YAML `verified` 自述无读取授权，CI `validate-candidate` 不赋予登记或派工权。只有已发布政策明确指定的模式才能用于受控登记，不能因单账号环境自动降级。
+
+
+**P2 受控读取边界：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 20 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查属于较低保证等级，只有正式政策 Tag、用户明确发布批准、完整固定文件哈希与运行端外部 Commit pin 全部核实后，才可用于其后的发现登记；不能无声替换其他正式政策、冒充不同 GitHub Reviewer 或授予业务权限。
+
+
+**P2 B 级机器验证（仅在新政策正式启用后适用）：** 仅对纯发现 `projects.yaml` 变更，配置必须是随正式 Tag 固定的 `GENESIS.registry_update_approval_mode`；B 机器核验准确 HEAD/parent/index/diff/IDs、最新 GitHub Actions success、owner 发布的 AI R0 审查证明及 owner 单独批准评论，保证 `CI < AI审查证据 < owner批准 < merge` 并校验全链。B 的审查来源由 owner 账号陈述，不能证明存在第二 GitHub 账号或密码学独立 AI 身份，也不能自动生成私库读取授权、派工和 writer；旧 A 级仍保留为较高保证选择。只有 `v0.2.0` 已经获得独立审查、用户准确版本发布批准、正式 annotated Tag 和运行端独立 policy pin 后，本版本 B 配置才能用于随后登记；发布本身不改变任何项目的现有权限。
+
+
+**关口一信任锚增补：** `validate_pre_merge`、`validate_post_merge`、`audit_first_parent_chain` 不可仅解析 Tag 就信任传入的可变 GENESIS；三个公开审批入口现在都要求调用方提供独立精确 `expected_policy_commit`，核对应有官方 Tag、20 项 Manifest raw SHA256、正在运行的 validator/Schema/GENESIS 后才选择 A/B。构造本地 B Mapping 不能将正式已发布的 A 模式偷换为 B；来源版本不合、校验失败或没有外部 pin 必须 HOLD。此项仍仅适用于治理发现索引，不授予其它项目权限。
