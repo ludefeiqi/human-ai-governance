@@ -1,0 +1,12 @@
+{
+  "schema": "hagov.cas.r2.synthetic.v1",
+  "experiment": "HAGOV-R2-GITHUB-CAS-20261008-01",
+  "synthetic": true,
+  "branch": "tests/cas-20261008-governance-01",
+  "path": "experiments/cas-20261008/receipt.json",
+  "base_commit": "cb3e65d12bc6d4b907134ac93d4fdcf8619dc45b",
+  "candidate": "A",
+  "isolated_test_only": true,
+  "authority_effect": "none",
+  "force": false
+}
