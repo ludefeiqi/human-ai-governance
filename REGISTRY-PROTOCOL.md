@@ -103,7 +103,7 @@ python3 -m venv /private/tmp/hagov-registry-venv
 git diff --check
 ```
 
-`validate-local` 仅校验首次政策发布时的原始 GENESIS，不可作为未来每次动态索引变更的 CI 门禁。`validate-candidate` 只做 Schema 和固定文件预检，必须输出 `registry_trusted:false`、`approval_verified:false`，不可深扫。`reviewer-readiness` 仅读 GitHub 实际协作者；只有一个 owner 时 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`，不能用另一个 AI 会话冒充不同 GitHub 审查账号，CI 替代审查属于另需批准的策略。正式 `audit-main` 必须提供插件单独锁定的 `--expected-policy-commit`。`pre-merge`、`post-merge`、`audit-main` 需要正式 Tag 和认证 GitHub GET；未发布期间必须 HOLD。
+`validate-local` 仅校验首次政策发布时的原始 GENESIS，不可作为未来每次动态索引变更的 CI 门禁。`validate-candidate` 只做 Schema 和固定文件预检，必须输出 `registry_trusted:false`、`approval_verified:false`，不可深扫。`reviewer-readiness` 仅读 GitHub 实际协作者；只有一个 owner 时 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`，不能用另一个 AI 会话冒充不同 GitHub 审查账号，CI 替代审查属于另需批准的策略。正式 `audit-main` 必须提供插件单独锁定的 `--expected-policy-commit`。`pre-merge`、`post-merge`、`audit-chain`、`audit-main` 都必须提供外部固定 `--expected-policy-commit <40hex>`，以正式 Tag/完整 Manifest/GENESIS/当前 validator 原始哈希绑定后才能检查审批或登记历史，并需要认证 GitHub GET；未发布期间必须 HOLD。
 
 
 ## 8. 单人多 AI 的分级审查候选（**待准确政策裁定，尚未生效**）
@@ -123,7 +123,7 @@ git diff --check
 
 ### B 级完整机器验证合同与 PR 原生证据格式
 
-固定 `registry/GENESIS.json` 决定审批模式，而不是根据仓库只有一个账号、某个 caller boolean 或 CI 结果临时降级。候选指定 B；这是**待正式发布的配置**，当前 `v0.1.0` 生效政策不因此变化。
+固定 `registry/GENESIS.json` 决定审批模式，而不是根据仓库只有一个账号、某个 caller boolean 或 CI 结果临时降级。`pre-merge`、`post-merge`、`audit-chain` 均会先核外部精确政策 Commit pin、GitHub Tag 和固定的完整 20 项原始文件哈希，再比较 caller 传入的 GENESIS；不得绕过真实性核验直接从可变 Mapping 选 B。历史链内部复用本次已核政策，避免对每个 Commit 无意义重复拉取全套文件。候选指定 B；这是**待正式发布的配置**，当前 `v0.1.0` 生效政策不因此变化。
 
 B 只允许发布后普通项目发现索引 PR，文件差异必须唯一且恰好为原有 `projects.yaml` 的 `modified`，拒绝 `renamed`/`previous_filename`/新增文件。Schema 固定 `reference_only`、`dispatch_enabled:false`、`writer_source:current_project_ledger_only`。新增条目的登记不能单独授予项目私库读取权限；实际扫描仍由另行授权的 `authorized_project_ids` 控制。
 
@@ -171,3 +171,16 @@ project_authority_effect=NONE
 **证明能力边界：** GitHub 只能证明平台记录了 owner 账号发布的两份评论及其时间、CI 实际运行结果；它不能证明 AI 真由某个独立会话生成，也不能证明评论必然由真人亲手发布。独立 AI 审查要靠独立对话与用户本人操作过程保证，因此 B 是**单 owner 认证的较低保证等级**，不是不同 GitHub 账号的 A，也不是平台强制分支保护。`main.protected=false` 时，读入方的 first-parent/回执校验承担失败即停止功能；不能防止持有 owner 凭据的人强行改写历史。
 
 **使用时点：** 这个 PR #5 是包含多份政策文件的版本发布候选，**不得拿未来只许改 projects.yaml 的 B 规则直接审批 PR #5 本身**。本轮也不创建 AI/owner 的实际批准评论，不能把同意开发等同于未来单笔 GitHub 登记的授权。
+
+
+### 准备与复核命令的适用时点
+
+正式发布 v0.2.0 并在插件中显式锁定实际政策 Commit **之后**，针对单个真正只改 `projects.yaml` 的 PR，可以只读运行：
+
+```bash
+python -m registry.validate_registry --root . pre-merge --pr <PR_NUMBER> --expected-head <40HEX> --expected-policy-commit <OFFICIALLY_PINNED_40HEX>
+python -m registry.validate_registry --root . post-merge --pr <PR_NUMBER> --expected-head <40HEX> --expected-merge <40HEX> --expected-policy-commit <OFFICIALLY_PINNED_40HEX>
+python -m registry.validate_registry --root . audit-chain --head <MAIN_40HEX> --expected-policy-commit <OFFICIALLY_PINNED_40HEX>
+```
+
+这些命令只使用认证的 GitHub GET，不会自动创建评论、Review、批准、提交或合并。B 所用的准确评论正文模板见上文；每次实际 AI 审查报告、CI 完成、owner 批准由有权人员按顺序产生。本轮 PR #5 属于启动新政策的多文件候选，尚无 v0.2.0 正式 Tag，**不符合普通登记 PR 的 pre/post 命令验收条件**。不得拿此处的模板代替本次正式政策版本发布批准。

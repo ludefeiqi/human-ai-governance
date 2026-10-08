@@ -67,3 +67,6 @@ The targeted fixes address forged reusable scan tokens, stale registry snapshots
 ### P2 Gate 1: single-owner B machine verifier staged, **not released**
 
 This Draft PR now includes an immutable GENESIS selection of `SINGLE_OWNER_AI_R0_ATTESTED` for future discovery-only registry updates and a tested read-only `pre-merge/post-merge/audit-chain` verifier. B checks the latest exact-HEAD GitHub Actions `validate` run, owner-posted AI R0 attestation and a *separate* owner approval comment, immutable comment IDs/body hashes, chronological order and merged bytes/first parent. The owner account posting an AI summary is **not** proof of a second GitHub reviewer or independent AI identity. The original A-mode verified GitHub reviewer path remains available for a differently released GENESIS. This code is not a bootstrap release approval: v0.1.0 remains effective, and future R0 project access still needs authorization independent from discovery metadata.
+
+
+Policy provenance binding tightened after independent R0 review: public `pre-merge`, `post-merge` and `audit-chain` all require an external exact policy Commit pin and verify the immutable Tag and full fixed-policy Manifest before selecting A or B from GENESIS. Injecting a local B dictionary when the official policy is A is a HOLD, not a fallback; tests cover the exact attack.

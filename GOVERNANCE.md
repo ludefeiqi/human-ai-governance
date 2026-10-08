@@ -98,3 +98,6 @@ v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immuta
 
 
 **P2 关口一 B 级候选已具备机器验证（尚未发布）：** 仅对纯发现 `projects.yaml` 变更，配置必须是随正式 Tag 固定的 `GENESIS.registry_update_approval_mode`；B 机器核验准确 HEAD/parent/index/diff/IDs、最新 GitHub Actions success、owner 发布的 AI R0 审查证明及 owner 单独批准评论，保证 `CI < AI审查证据 < owner批准 < merge` 并校验全链。B 的审查来源由 owner 账号陈述，不能证明存在第二 GitHub 账号或密码学独立 AI 身份，也不能自动生成私库读取授权、派工和 writer；旧 A 级仍保留为较高保证选择。只有新的 v0.2.0 政策得到准确版本的独立审查和用户**另一次正式发布批准**后，此候选 B 配置才可生效。本轮仍为 Draft，项目原有权限不变。
+
+
+**关口一信任锚增补：** `validate_pre_merge`、`validate_post_merge`、`audit_first_parent_chain` 不可仅解析 Tag 就信任传入的可变 GENESIS；三个公开审批入口现在都要求调用方提供独立精确 `expected_policy_commit`，核对应有官方 Tag、20 项 Manifest raw SHA256、正在运行的 validator/Schema/GENESIS 后才选择 A/B。构造本地 B Mapping 不能将正式已发布的 A 模式偷换为 B；来源版本不合、校验失败或没有外部 pin 必须 HOLD。此项仍仅适用于治理发现索引，不授予其它项目权限。

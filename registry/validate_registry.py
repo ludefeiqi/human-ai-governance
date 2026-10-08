@@ -499,6 +499,19 @@ def resolve_release_commit(api: Api, genesis: Mapping[str, Any]) -> str:
     return target["sha"]
 
 
+def _require_release_policy_pin(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    expected_policy_commit: str | None,
+) -> str:
+    if not expected_policy_commit or not SHA40_RE.fullmatch(expected_policy_commit):
+        raise RegistryError("POLICY_PIN_REQUIRED", "immutable policy commit pin is required for approval checks")
+    release_commit = resolve_release_commit(api, genesis)
+    if release_commit != expected_policy_commit:
+        raise RegistryError("POLICY_PIN_MISMATCH", "tag resolves to a different commit than the external pin")
+    verify_policy_sources_from_immutable_commit(api, genesis, schema, release_commit)
+    return release_commit
+
+
 def _parse_owner_comment(body: str, marker: str) -> dict[str, str] | None:
     lines = body.splitlines()
     if not lines or lines[0].strip() != marker:
@@ -559,7 +572,7 @@ class PreMergeEvidence:
         }
 
 
-def validate_pre_merge(
+def _validate_pre_merge_core(
     api: Api,
     genesis: Mapping[str, Any],
     schema: Mapping[str, Any],
@@ -568,7 +581,6 @@ def validate_pre_merge(
     *,
     historical_base: str | None = None,
 ) -> PreMergeEvidence:
-    resolve_release_commit(api, genesis)
     repository = genesis["governance_repository"]
     if not SHA40_RE.fullmatch(expected_head):
         raise RegistryError("CANDIDATE_HEAD_INVALID", "expected candidate head must be 40 lowercase hex")
@@ -682,6 +694,16 @@ def validate_pre_merge(
         owner_comment_created_at=created.isoformat().replace("+00:00", "Z"),
     )
 
+
+
+def validate_pre_merge(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    pr_number: int, expected_head: str, *,
+    expected_policy_commit: str | None = None,
+) -> PreMergeEvidence:
+    """Public R0 approval audit. Caller must supply an externally pinned policy Commit."""
+    _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
+    return _validate_pre_merge_core(api, genesis, schema, pr_number, expected_head)
 
 
 def _owner_github_comment(
@@ -852,7 +874,7 @@ class PostMergeEvidence:
         }
 
 
-def validate_post_merge(
+def _validate_post_merge_core(
     api: Api,
     genesis: Mapping[str, Any],
     schema: Mapping[str, Any],
@@ -871,7 +893,7 @@ def validate_post_merge(
     if not parents or not SHA40_RE.fullmatch(parents[0].get("sha", "")):
         raise RegistryError("FIRST_PARENT_MISMATCH", "actual merge first parent missing")
     historical_base = parents[0]["sha"]
-    pre = validate_pre_merge(
+    pre = _validate_pre_merge_core(
         api, genesis, schema, pr_number, expected_head, historical_base=historical_base,
     )
     merged_at = _parse_utc(pr.get("merged_at", ""))
@@ -887,12 +909,25 @@ def validate_post_merge(
     return PostMergeEvidence(pre=pre, merge_commit=expected_merge, first_parent=parents[0]["sha"])
 
 
-def audit_first_parent_chain(
-    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any], head: str
+def validate_post_merge(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    pr_number: int, expected_head: str, expected_merge: str, *,
+    expected_policy_commit: str | None = None,
+) -> PostMergeEvidence:
+    """Public post-merge check, bound to immutable tag and running policy bytes."""
+    _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
+    return _validate_post_merge_core(api, genesis, schema, pr_number, expected_head, expected_merge)
+
+
+def _audit_first_parent_chain_core(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any], head: str,
+    *, trusted_release_commit: str,
 ) -> dict[str, Any]:
     if not SHA40_RE.fullmatch(head):
         raise RegistryError("INDEX_HEAD_INVALID", "index head must be 40 lowercase hex")
-    release_commit = resolve_release_commit(api, genesis)
+    if not SHA40_RE.fullmatch(trusted_release_commit):
+        raise RegistryError("POLICY_PIN_REQUIRED", "internal chain walk requires validated immutable release commit")
+    release_commit = trusted_release_commit
     repository = genesis["governance_repository"]
     cursor = head
     visited = 0
@@ -917,7 +952,7 @@ def audit_first_parent_chain(
             if len(candidates) != 1:
                 raise RegistryError("INDEX_CHANGE_PR_UNPROVEN", f"index change {cursor} lacks one exact merged PR")
             pr = candidates[0]
-            evidence = validate_post_merge(
+            evidence = _validate_post_merge_core(
                 api, genesis, schema, int(pr["number"]), pr["head"]["sha"], cursor
             )
             changes.append(evidence.as_dict())
@@ -933,6 +968,17 @@ def audit_first_parent_chain(
         "commits_traversed": visited,
         "registry_changes": list(reversed(changes)),
     }
+
+
+def audit_first_parent_chain(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    head: str, *, expected_policy_commit: str | None = None,
+) -> dict[str, Any]:
+    """Public chain audit rejects invented approval modes and unpinned policy."""
+    trusted = _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
+    return _audit_first_parent_chain_core(
+        api, genesis, schema, head, trusted_release_commit=trusted,
+    )
 
 
 def reviewer_readiness(api: Api, genesis: Mapping[str, Any]) -> dict[str, Any]:
@@ -1056,7 +1102,9 @@ def _audit_verified_registry_state(
     observed: list[dict[str, str]] = []
     for attempt in (1, 2):
         start = _registry_branch_head(api, genesis)
-        result = audit_first_parent_chain(api, genesis, schema, start)
+        result = _audit_first_parent_chain_core(
+            api, genesis, schema, start, trusted_release_commit=policy_commit,
+        )
         raw, _ = _content_bytes(api, genesis["governance_repository"], genesis["registry_path"], start)
         index = load_index_bytes(raw, schema)
         end = _registry_branch_head(api, genesis)
@@ -1285,12 +1333,15 @@ def _parser() -> argparse.ArgumentParser:
     pre = sub.add_parser("pre-merge")
     pre.add_argument("--pr", type=int, required=True)
     pre.add_argument("--expected-head", required=True)
+    pre.add_argument("--expected-policy-commit", required=True)
     post = sub.add_parser("post-merge")
     post.add_argument("--pr", type=int, required=True)
     post.add_argument("--expected-head", required=True)
     post.add_argument("--expected-merge", required=True)
+    post.add_argument("--expected-policy-commit", required=True)
     chain = sub.add_parser("audit-chain")
     chain.add_argument("--head", required=True)
+    chain.add_argument("--expected-policy-commit", required=True)
     audited = sub.add_parser("audit-main")
     audited.add_argument("--expected-policy-commit", required=True)
     sub.add_parser("reviewer-readiness")
@@ -1324,13 +1375,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             api = GhApi()
             if args.command == "pre-merge":
-                result = validate_pre_merge(api, genesis, schema, args.pr, args.expected_head).as_dict()
+                result = validate_pre_merge(
+                    api, genesis, schema, args.pr, args.expected_head,
+                    expected_policy_commit=args.expected_policy_commit,
+                ).as_dict()
             elif args.command == "post-merge":
                 result = validate_post_merge(
-                    api, genesis, schema, args.pr, args.expected_head, args.expected_merge
+                    api, genesis, schema, args.pr, args.expected_head, args.expected_merge,
+                    expected_policy_commit=args.expected_policy_commit,
                 ).as_dict()
             elif args.command == "audit-chain":
-                result = audit_first_parent_chain(api, genesis, schema, args.head)
+                result = audit_first_parent_chain(
+                    api, genesis, schema, args.head,
+                    expected_policy_commit=args.expected_policy_commit,
+                )
             elif args.command == "audit-main":
                 result = audit_main_snapshot(
                     api, genesis, schema, expected_policy_commit=args.expected_policy_commit

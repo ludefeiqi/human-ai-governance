@@ -90,6 +90,7 @@ def evidence_routes(schema):
         COMMENTS_ENDPOINT: [{"id": 4242, "user": {"login": "owner"}, "created_at": created, "updated_at": created, "body": comment}],
         f"repos/{REPO}/commits/{SHA_C}": {"sha": SHA_C, "parents": [{"sha": SHA_A}]},
     }
+    mock_released_policy_routes(routes, REPO, "e" * 40, active_genesis())
     return routes, before_raw, after_raw
 
 
@@ -98,13 +99,13 @@ def assert_hold(schema, mutate, code):
     genesis = active_genesis()
     mutate(routes, genesis)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == code
 
 
 def test_pre_merge_exact_evidence_passes(schema):
     routes, _, _ = evidence_routes(schema)
-    evidence = validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+    evidence = validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     result = evidence.as_dict()
     assert result["changed_ids"] == ["alpha"]
     assert result["independent_reviewer"] == "reviewer"
@@ -120,7 +121,7 @@ def test_unpublished_genesis_holds_before_any_pr_read(schema):
     genesis["status"] = "CANDIDATE_NOT_RELEASED"
     api = FakeApi(routes)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(api, genesis, schema, 5, SHA_B)
+        validate_pre_merge(api, genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "V0_2_UNPUBLISHED"
     assert not any(endpoint == PR_ENDPOINT for endpoint, _ in api.calls)
 
@@ -164,7 +165,7 @@ def test_latest_review_state_controls(schema):
         }
     )
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "INDEPENDENT_APPROVAL_MISSING"
 
 
@@ -172,7 +173,7 @@ def test_empty_semantic_diff_is_rejected(schema):
     routes, before_raw, _ = evidence_routes(schema)
     routes[(CONTENT_ENDPOINT, (("ref", SHA_B),))] = content(before_raw)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "INDEX_DIFF_EMPTY"
 
 
@@ -183,7 +184,7 @@ def post_routes(schema):
 
 
 def test_post_merge_binds_actual_merge_and_first_parent(schema):
-    evidence = validate_post_merge(FakeApi(post_routes(schema)), active_genesis(), schema, 5, SHA_B, SHA_C)
+    evidence = validate_post_merge(FakeApi(post_routes(schema)), active_genesis(), schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
     assert evidence.merge_commit == SHA_C
     assert evidence.first_parent == SHA_A
 
@@ -210,7 +211,7 @@ def test_post_merge_fail_closed(schema, mutate, code):
     routes = post_routes(schema)
     mutate(routes)
     with pytest.raises(RegistryError) as caught:
-        validate_post_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, SHA_C)
+        validate_post_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
     assert caught.value.code == code
 
 
@@ -224,7 +225,8 @@ def test_chain_accepts_only_exact_release_genesis(schema):
     release = "e" * 40
     routes, _, _ = evidence_routes(schema)
     routes[(CONTENT_ENDPOINT, (("ref", release),))] = content(raw)
-    result = audit_first_parent_chain(FakeApi(routes), genesis, schema, release)
+    mock_released_policy_routes(routes, REPO, release, genesis)
+    result = audit_first_parent_chain(FakeApi(routes), genesis, schema, release, expected_policy_commit=release)
     assert result["genesis_commit"] == release
     assert result["commits_traversed"] == 0
 
@@ -234,7 +236,7 @@ def test_chain_holds_if_genesis_not_first_parent_ancestor(schema):
     routes, _, _ = evidence_routes(schema)
     routes[f"repos/{REPO}/commits/{SHA_C}"] = {"sha": SHA_C, "parents": []}
     with pytest.raises(RegistryError) as caught:
-        audit_first_parent_chain(FakeApi(routes), genesis, schema, SHA_C)
+        audit_first_parent_chain(FakeApi(routes), genesis, schema, SHA_C, expected_policy_commit='e'*40)
     assert caught.value.code == "GENESIS_NOT_ANCESTOR"
 
 
@@ -336,7 +338,7 @@ def test_owner_approval_never_pre_fills_github_created_at(schema):
     body = routes[COMMENTS_ENDPOINT][0]["body"]
     assert "approved_at_utc" not in body
     assert "authorized_action=APPROVE_DISCOVERY_REGISTRY_UPDATE" in body
-    result = validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+    result = validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert result.owner_comment_created_at == routes[COMMENTS_ENDPOINT][0]["created_at"]
 
 
@@ -357,7 +359,7 @@ def test_owner_comment_chronology_and_integrity(schema, mutate, expected):
     routes, _, _ = evidence_routes(schema)
     mutate(routes)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == expected
 
 
@@ -373,7 +375,7 @@ def test_post_merge_requires_prior_owner_approval(schema, merged_at, expected):
     routes = post_routes(schema)
     routes[PR_ENDPOINT]["merged_at"] = merged_at
     with pytest.raises(RegistryError) as caught:
-        validate_post_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, SHA_C)
+        validate_post_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
     assert caught.value.code == expected
 
 
@@ -385,7 +387,7 @@ def test_latest_owner_decision_invalidates_earlier_valid_approval(schema):
     later["body"] = later["body"].replace("changed_ids=alpha", "changed_ids=beta")
     routes[COMMENTS_ENDPOINT].append(later)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), active_genesis(), schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "OWNER_APPROVAL_MISMATCH"
 
 def test_main_snapshot_requires_external_policy_commit_pin(schema):

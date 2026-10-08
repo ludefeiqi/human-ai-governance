@@ -116,3 +116,6 @@ project_adoptions: []
 - 独立 AI 复核与 CI 通过只允许准备正式政策发布申请，用户对准确正式 v0.2.0 发布、插件版本锁更新及每次未来登记仍须单独批准；不动 HOT/DOT/ROOT。
 
 **关口一文件集更新：** 目前应核对完整 20 项政策文件集。新增 B 级专项负例测试文件后，固定政策 Manifest 的准确集合为 20 项；审查必须以当前 validator 中 `RELEASE_POLICY_FILESET` 和 GitHub 实际原始字节为准，不能沿用旧候选的 19 项统计。
+
+
+**关口一独立审查发现项的补测：** 模拟官方 Tag GENESIS=A、调用方偷换成本地 GENESIS=B，必须 `GENESIS_POLICY_MISMATCH/HOLD`；另核 Tag Commit 不等于外部 pin 时 `POLICY_PIN_MISMATCH`、缺 pin 时 `POLICY_PIN_REQUIRED`。覆盖 `pre-merge`、`post-merge` 和 `audit-chain`，禁止仅检查模式字段就通过。B 的回执验收与政策锚验收是两道独立门禁。

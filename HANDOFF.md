@@ -88,3 +88,6 @@ registration unverified 项目不深扫私库；403/404/symlink/来源缺失只�
 
 
 **B 级审批技术链路（未正式发布）：** 对未来普通发现登记 PR，以独立政策 GENESIS 指定的 A/B 模式为唯一开关。B 模式须在相同 HEAD 下完成 CI 最新成功、owner GitHub 评论承载 AI R0 证明、owner 不同评论明确限定用途批准，并在合并后读回实际 first-parent/原始索引。评论作者仅是 owner GitHub 账号，不能冒充另一个 GitHub reviewer 或真人独立认证。缺任一证据均 HOLD，业务项目私库读取/执行权限须另行授权。
+
+
+**政策信任锚安全更新：** 当 B 级正式受用户准确批准并发布后，所有 pre/post-merge 与 first-parent 历史审计均须取得**外部已信任政策 Commit pin**，逐项读回官方 Tag 与固定文件哈希后才读取 GENESIS 中的审查模式。不可用 caller JSON、未发布候选或最近的 CI 成功结果替代政策锚。当前 v0.1.0 继续有效，新版只能候选 R0。

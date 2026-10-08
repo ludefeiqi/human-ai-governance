@@ -13,7 +13,7 @@ from registry.validate_registry import (
     validate_post_merge,
     validate_pre_merge,
 )
-from tests.helpers import SHA_A, SHA_B, SHA_C, FakeApi, active_genesis, index
+from tests.helpers import SHA_A, SHA_B, SHA_C, FakeApi, active_genesis, index, mock_released_policy_routes
 from tests.test_github_evidence import (
     COMMENTS_ENDPOINT,
     CONTENT_ENDPOINT,
@@ -103,12 +103,13 @@ def b_fixture(schema):
         "check_runs": [copy.deepcopy(routes[f"repos/{REPO}/check-runs/{CI_ID}"])],
     }
     routes[PR_ENDPOINT]["merged_at"] = None
+    mock_released_policy_routes(routes, REPO, "e" * 40, genesis)
     return genesis, routes
 
 
 def b_verified(schema):
     genesis, routes = b_fixture(schema)
-    return validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+    return validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
 
 
 def test_b_exact_binding_pre_merge_passes_without_external_github_review(schema):
@@ -126,7 +127,7 @@ def test_b_no_tag_holds_even_with_complete_ai_ci_and_owner_receipts(schema):
     genesis, routes = b_fixture(schema)
     genesis["status"] = "CANDIDATE_NOT_RELEASED"
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "V0_2_UNPUBLISHED"
 
 
@@ -136,7 +137,7 @@ def test_b_future_merge_parent_not_confused_with_mutable_pr_base(schema):
         "merged": True, "state": "closed", "merged_at": MERGE_TIME,
         "merge_commit_sha": SHA_C, "base": {"sha": SHA_C},
     })
-    result = validate_post_merge(FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C)
+    result = validate_post_merge(FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
     assert result.pre.previous_index_commit == SHA_A
     assert result.merge_commit == SHA_C
 
@@ -174,7 +175,7 @@ def test_b_fail_closed_on_missing_stale_edit_fraud_or_escalation(schema, mutatio
     genesis, routes = b_fixture(schema)
     mutation(routes)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == reason
 
 
@@ -186,7 +187,7 @@ def test_b_newest_ai_report_invalidates_older_valid_report(schema):
     older["body"] = older["body"].replace("open_blockers=0", "open_blockers=2")
     routes[COMMENTS_ENDPOINT].append(older)
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "AI_B_ATTESTATION_MISMATCH"
 
 
@@ -194,7 +195,7 @@ def test_b_post_merge_approval_cannot_be_backfilled(schema):
     genesis, routes = b_fixture(schema)
     routes[PR_ENDPOINT].update({"merged": True, "state": "closed", "merged_at": OWNER_TIME, "merge_commit_sha": SHA_C})
     with pytest.raises(RegistryError) as caught:
-        validate_post_merge(FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C)
+        validate_post_merge(FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C, expected_policy_commit='e'*40)
     assert caught.value.code == "OWNER_APPROVAL_AFTER_MERGE"
 
 
@@ -203,8 +204,8 @@ def test_a_explicit_mode_not_implicitly_changed_to_b_by_receipts(schema):
     genesis = active_genesis()
     assert genesis["registry_update_approval_mode"] == "EXTERNAL_GITHUB_REVIEW"
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
-    assert caught.value.code == "INDEPENDENT_APPROVAL_MISSING"
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
+    assert caught.value.code == "GENESIS_POLICY_MISMATCH"
 
 
 def test_b_reviewer_readiness_never_announces_grant_or_automatic_downgrade():
@@ -236,7 +237,7 @@ def test_b_old_success_cannot_override_newer_failing_check(schema):
     routes[key]["check_runs"][0]["id"] = CI_ID + 42
     routes[key]["check_runs"][0]["conclusion"] = "failure"
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "AI_B_CI_STALE"
 
 
@@ -245,5 +246,72 @@ def test_b_missing_latest_check_list_holds(schema):
     key = (f"repos/{REPO}/commits/{SHA_B}/check-runs", (("filter", "latest"), ("per_page", "100")))
     routes[key] = {"total_count": 1000, "check_runs": []}
     with pytest.raises(RegistryError) as caught:
-        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B)
+        validate_pre_merge(FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit='e'*40)
     assert caught.value.code == "AI_B_CI_LATEST_UNAVAILABLE"
+
+
+def test_caller_cannot_enable_b_against_official_a_policy(schema):
+    genesis, routes = b_fixture(schema)
+    # The caller requests B, but the immutable release at the exact Tag is A.
+    mock_released_policy_routes(routes, REPO, "e" * 40, active_genesis())
+    with pytest.raises(RegistryError) as caught:
+        validate_pre_merge(
+            FakeApi(routes), genesis, schema, 5, SHA_B, expected_policy_commit="e" * 40,
+        )
+    assert caught.value.code == "GENESIS_POLICY_MISMATCH"
+
+
+def test_missing_external_policy_commit_pin_stops_before_any_github_calls(schema):
+    genesis, routes = b_fixture(schema)
+    api = FakeApi(routes)
+    with pytest.raises(RegistryError) as caught:
+        validate_pre_merge(api, genesis, schema, 5, SHA_B)
+    assert caught.value.code == "POLICY_PIN_REQUIRED"
+    assert api.calls == []
+
+
+def test_invalid_policy_commit_pin_cannot_be_replaced_by_correct_genesis(schema):
+    genesis, routes = b_fixture(schema)
+    with pytest.raises(RegistryError) as caught:
+        validate_pre_merge(
+            FakeApi(routes), genesis, schema, 5, SHA_B,
+            expected_policy_commit="f" * 40,
+        )
+    assert caught.value.code == "POLICY_PIN_MISMATCH"
+
+
+def test_post_merge_also_rejects_mutable_caller_b_when_release_is_a(schema):
+    genesis, routes = b_fixture(schema)
+    routes[PR_ENDPOINT].update({
+        "merged": True, "state": "closed", "merged_at": MERGE_TIME,
+        "merge_commit_sha": SHA_C,
+    })
+    mock_released_policy_routes(routes, REPO, "e" * 40, active_genesis())
+    with pytest.raises(RegistryError) as caught:
+        validate_post_merge(
+            FakeApi(routes), genesis, schema, 5, SHA_B, SHA_C,
+            expected_policy_commit="e" * 40,
+        )
+    assert caught.value.code == "GENESIS_POLICY_MISMATCH"
+
+
+def test_chain_audit_rejects_caller_b_against_official_a_genesis(schema):
+    from registry.validate_registry import audit_first_parent_chain
+    genesis, routes = b_fixture(schema)
+    mock_released_policy_routes(routes, REPO, "e" * 40, active_genesis())
+    with pytest.raises(RegistryError) as caught:
+        audit_first_parent_chain(
+            FakeApi(routes), genesis, schema, "e" * 40,
+            expected_policy_commit="e" * 40,
+        )
+    assert caught.value.code == "GENESIS_POLICY_MISMATCH"
+
+
+def test_chain_audit_requires_its_own_external_policy_commit_pin(schema):
+    from registry.validate_registry import audit_first_parent_chain
+    genesis, routes = b_fixture(schema)
+    api = FakeApi(routes)
+    with pytest.raises(RegistryError) as caught:
+        audit_first_parent_chain(api, genesis, schema, "e" * 40)
+    assert caught.value.code == "POLICY_PIN_REQUIRED"
+    assert api.calls == []
