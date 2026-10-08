@@ -702,8 +702,12 @@ def validate_pre_merge(
     expected_policy_commit: str | None = None,
 ) -> PreMergeEvidence:
     """Public R0 approval audit. Caller must supply an externally pinned policy Commit."""
-    _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
-    return _validate_pre_merge_core(api, genesis, schema, pr_number, expected_head)
+    immutable_genesis = json.loads(_canonical_json(genesis))
+    immutable_schema = json.loads(_canonical_json(schema))
+    _require_release_policy_pin(api, immutable_genesis, immutable_schema, expected_policy_commit)
+    return _validate_pre_merge_core(
+        api, immutable_genesis, immutable_schema, pr_number, expected_head,
+    )
 
 
 def _owner_github_comment(
@@ -915,8 +919,12 @@ def validate_post_merge(
     expected_policy_commit: str | None = None,
 ) -> PostMergeEvidence:
     """Public post-merge check, bound to immutable tag and running policy bytes."""
-    _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
-    return _validate_post_merge_core(api, genesis, schema, pr_number, expected_head, expected_merge)
+    immutable_genesis = json.loads(_canonical_json(genesis))
+    immutable_schema = json.loads(_canonical_json(schema))
+    _require_release_policy_pin(api, immutable_genesis, immutable_schema, expected_policy_commit)
+    return _validate_post_merge_core(
+        api, immutable_genesis, immutable_schema, pr_number, expected_head, expected_merge,
+    )
 
 
 def _audit_first_parent_chain_core(
@@ -975,9 +983,13 @@ def audit_first_parent_chain(
     head: str, *, expected_policy_commit: str | None = None,
 ) -> dict[str, Any]:
     """Public chain audit rejects invented approval modes and unpinned policy."""
-    trusted = _require_release_policy_pin(api, genesis, schema, expected_policy_commit)
+    immutable_genesis = json.loads(_canonical_json(genesis))
+    immutable_schema = json.loads(_canonical_json(schema))
+    trusted = _require_release_policy_pin(
+        api, immutable_genesis, immutable_schema, expected_policy_commit,
+    )
     return _audit_first_parent_chain_core(
-        api, genesis, schema, head, trusted_release_commit=trusted,
+        api, immutable_genesis, immutable_schema, head, trusted_release_commit=trusted,
     )
 
 
@@ -1094,6 +1106,8 @@ def _audit_verified_registry_state(
     """Rebuild an exact, live, verified index. Never return a reusable scan token."""
     if not SHA40_RE.fullmatch(expected_policy_commit):
         raise RegistryError("POLICY_PIN_REQUIRED", "exact external policy commit pin is required")
+    genesis = json.loads(_canonical_json(genesis))
+    schema = json.loads(_canonical_json(schema))
     policy_commit = resolve_release_commit(api, genesis)
     if policy_commit != expected_policy_commit:
         raise RegistryError("POLICY_PIN_MISMATCH", "tag target differs from trusted external pin")

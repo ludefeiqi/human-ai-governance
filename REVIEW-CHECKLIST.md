@@ -119,3 +119,5 @@ project_adoptions: []
 
 
 **关口一独立审查发现项的补测：** 模拟官方 Tag GENESIS=A、调用方偷换成本地 GENESIS=B，必须 `GENESIS_POLICY_MISMATCH/HOLD`；另核 Tag Commit 不等于外部 pin 时 `POLICY_PIN_MISMATCH`、缺 pin 时 `POLICY_PIN_REQUIRED`。覆盖 `pre-merge`、`post-merge` 和 `audit-chain`，禁止仅检查模式字段就通过。B 的回执验收与政策锚验收是两道独立门禁。
+
+**可变调用者输入的竞态负例：** 公共审批入口在完整官方来源校验前先复制 GENESIS/Schema，后续审计只使用本次固定副本；即使读取 PR 时原始 caller Mapping 被篡改为 B，也不得绕过正式 A 级独立 GitHub Review。

@@ -315,3 +315,25 @@ def test_chain_audit_requires_its_own_external_policy_commit_pin(schema):
         audit_first_parent_chain(api, genesis, schema, "e" * 40)
     assert caught.value.code == "POLICY_PIN_REQUIRED"
     assert api.calls == []
+
+
+def test_mutating_caller_genesis_after_official_validation_cannot_switch_a_to_b(schema):
+    from tests.test_github_evidence import evidence_routes
+    genesis = active_genesis()  # immutable released A
+    routes, _, _ = evidence_routes(schema)
+    routes[REVIEWS_ENDPOINT] = []
+
+    class TamperingGetApi(FakeApi):
+        def get(self, endpoint, fields=None):
+            if endpoint == PR_ENDPOINT:
+                genesis["registry_update_approval_mode"] = "SINGLE_OWNER_AI_R0_ATTESTED"
+            return super().get(endpoint, fields)
+
+    api = TamperingGetApi(routes)
+    with pytest.raises(RegistryError) as caught:
+        validate_pre_merge(
+            api, genesis, schema, 5, SHA_B,
+            expected_policy_commit="e" * 40,
+        )
+    assert caught.value.code == "INDEPENDENT_APPROVAL_MISSING"
+    assert genesis["registry_update_approval_mode"] == "SINGLE_OWNER_AI_R0_ATTESTED"
