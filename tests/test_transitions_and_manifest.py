@@ -9,6 +9,7 @@ import pytest
 from registry.validate_registry import (
     RegistryError,
     build_report,
+    candidate_schema_precheck,
     compare_indexes,
     normalized_diff,
     validate_genesis_index,
@@ -202,3 +203,54 @@ def test_manifest_rejects_duplicate_path(tmp_path: Path):
     with pytest.raises(RegistryError) as caught:
         validate_manifest(tmp_path, manifest)
     assert caught.value.code == "MANIFEST_DUPLICATE"
+
+def test_genesis_candidate_precheck_does_not_grant_scan_rights():
+    from tests.helpers import dump
+    value = index()
+    raw = dump(value)
+    genesis = {
+        "initial_index_sha256": hashlib.sha256(raw).hexdigest(),
+        "initial_project_identity_hashes": {
+            "alpha": value["projects"]["alpha"]["identity"]["identity_hash"]
+        },
+    }
+    result = candidate_schema_precheck(genesis, value, raw)
+    assert result["phase"] == "GENESIS_SCHEMA_PRECHECK"
+    assert result["status"] == "SCHEMA_PRECHECK_PASS"
+    assert result["registry_trusted"] is False
+    assert result["approval_verified"] is False
+    assert result["untrusted_registry_view"]["registration"]["verified"] == 0
+
+
+def test_future_index_update_can_pass_schema_precheck_without_genesis_hash():
+    from tests.helpers import dump
+    initial = index()
+    genesis_raw = dump(initial)
+    genesis = {
+        "initial_index_sha256": hashlib.sha256(genesis_raw).hexdigest(),
+        "initial_project_identity_hashes": {
+            "alpha": initial["projects"]["alpha"]["identity"]["identity_hash"]
+        },
+    }
+    updated = index({
+        "alpha": project(),
+        "beta": project("beta", "owner/beta"),
+    })
+    updated_raw = dump(updated)
+    result = candidate_schema_precheck(genesis, updated, updated_raw)
+    assert result["phase"] == "DYNAMIC_SCHEMA_PRECHECK"
+    assert result["status"] == "SCHEMA_PRECHECK_PASS"
+    assert result["registry_trusted"] is False
+    assert result["dispatch_authorized"] is False
+    assert result["untrusted_registry_view"]["registration"] == {"verified": 0, "unverified": 2}
+
+
+def test_precheck_is_not_registration_approval():
+    from tests.helpers import dump
+    initial = index()
+    updated = index({"alpha": project(), "beta": project("beta", "owner/beta")})
+    raw = dump(updated)
+    genesis = {"initial_index_sha256": hashlib.sha256(dump(initial)).hexdigest()}
+    report = candidate_schema_precheck(genesis, updated, raw)
+    assert report["approval_verified"] is False
+    assert report["writer_change_authorized"] is False

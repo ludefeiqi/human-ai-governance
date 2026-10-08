@@ -69,7 +69,7 @@
 
 失败优先级：**不扩大权限 > 不损坏真实业务/证据 > 不重复派工 > 最快执行**。回报冲突所需最小事实并停在原位置。
 
-## 9. 并发 CAS、目录安全与启用批准（对 §3–§8 的补充判据）
+## 9. 并发 CAS、目录安全与启用批准（对 `3–`8 的补充判据）
 
 **分支级原子 CAS：** 对共享权威状态写入先取得 expected HEAD；用以该 HEAD 为唯一父提交的 commit + **非强制 fast-forward `git push`**，或经实际核验支持 `expected_sha` 的 ref 更新。远端 HEAD 漂移须由服务端拒绝并返回 `HEAD_CONFLICT`；不自动 rebase、force push、合并旧授权或重放执行。多文件变更一个 commit 原子发布。GitHub Contents API 的文件 blob `sha` 不是整个分支的 CAS；即使 CAS 通过，也**不等于**旧 writer、浏览器和生产资源已被排他锁定。
 
@@ -90,3 +90,5 @@ v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immuta
 正式索引历史以 release genesis commit 为根沿 `main` first-parent 连续验证。每个 index 变化与上一份 approved index 比较：ID 不得物理删除或改用途；repository/identity hash 不得替换；retired 保留 tombstone、identity、退役时间、上一索引 commit 和追加历史；同身份 re-activate 只可追加事件。每个发布后 registry PR 只许改变 `projects.yaml`，并须通过 exact-head 独立 APPROVED review、owner GitHub comment 的 head/index/diff/IDs/time 绑定，以及合并后 actual merge commit/first-parent/raw index 再核。合并前不得预言 merge SHA；证据不足一律 HOLD，不降低保护。
 
 读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以本候选的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。
+
+**P2.1 额外判据（候选）：** owner 批准评论不得预填未知 GitHub `created_at`；必须先有真实独立 GitHub actor 对准确 HEAD 的 `APPROVED` Review，再有未编辑的 owner 绑定评论，严格核对 `submitted_at < created_at < merged_at`。动态索引仅能经外部政策 Commit pin、固定 validator/Schema/GENESIS 与完整 first-parent 链核实后生成临时可信快照；原始 YAML `verified` 字样无读取授权。CI `validate-candidate` 只能做格式预检，不赋予登记/派工权限。仓库只有 owner、无独立 GitHub reviewer 时维持 HOLD，不伪造第二账号身份。

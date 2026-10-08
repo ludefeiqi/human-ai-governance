@@ -63,7 +63,7 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 
 > 只读恢复项目 `PROJECT_ID`。请先实际读取已采用的独立治理仓库版本、projects.yaml、项目最新权威账本/AGENTS.md/固定合同，再按准确 ID 查询 Codex 线程和运行状态。输出最新 HEAD、现任单写负责人、仍在运行任务、有效授权和唯一 NEXT；凡版本、权限、任务或资源状态有冲突均停止。未经另行明确授权，不写仓库、不发任务、不接管 writer。
 
-## 7. 不可用状态与不重复执行（对 §2、§5 的明确例外）
+## 7. 不可用状态与不重复执行（对 `2、`5 的明确例外）
 
 - `POLICY_UNAVAILABLE`：治理私库或该项目**实际采用的准确治理版本**无法远端核实；只读报告，不凭缓存、旧窗口或记忆宣称最新，不派工、不变更 writer。
 - `DISPATCH_CONFLICT`：已有 `(project_id,dispatch_id)`，但任务载荷摘要不同，停止；相同只读恢复既有状态和原线程/回执。
@@ -80,3 +80,5 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 registration unverified 项目不深扫私库；403/404/symlink/来源缺失只阻断该项目，继续其它已授权 R0 项目。报告必须分别给出 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每个维度合计 `registry_total`。项目账本实际 NEXT 单列 `DECLARED`；协调者建议单列 `INFERRED governance recommendation`；未读到就是 UNKNOWN。
 
 两个窗口即使得到相同索引也仍是 R0 observers。发现、`thread/list/read` 或 includeTurns=false 不产生 writer；`thread/resume` 会恢复执行上下文，不是本流程的只读查询。索引不得自动 adopted、dispatch 或 writer handoff；任何接管仍须项目自身权威流程与用户准确授权。
+
+**P2.1 冷恢复补充（候选）：** 外部插件需提供准确 policy Commit pin；新窗口必须从该不可变 Commit 校验运行的 validator、Schema 与 GENESIS，完成审批链与 HEAD 稳定核验后才获得临时 `VerifiedRegistrySnapshot`。直接传入带 `registration: verified` 的 YAML dict 应被阻断。未来动态索引变更的绿色 CI 仅证明 Schema precheck，不等于审批。缺不同 GitHub reviewer 标记 `REVIEWER_UNAVAILABLE/HOLD`。

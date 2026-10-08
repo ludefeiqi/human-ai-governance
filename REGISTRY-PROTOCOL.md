@@ -52,7 +52,7 @@ validator 的网络面只可调用认证的 `gh api --method GET`。不接受 YA
 - 从 exact head/base 读取 raw index，严格解析并与上一份索引比较；
 - 计算 candidate index raw SHA256、canonical JSON semantic diff SHA256 和排序后的 changed IDs；
 - 至少一个不等于 PR author、也不等于 immutable owner 的 reviewer，其**最新** review 在 exact head 上为 `APPROVED`；
-- immutable owner 发布 GitHub comment，API `user.login` 精确匹配，comment `created_at` 是 UTC，正文逐项绑定 head、base、index SHA、diff SHA、IDs 和同一 API 时间。
+- immutable owner 必须在独立审查者 exact-head `APPROVED` Review 之后发布 GitHub comment。评论正文绑定 head、base、index SHA、diff SHA、IDs、动作和范围；以 API `created_at` 为唯一批准时间，不得要求预填尚未生成的服务器时间；`updated_at` 必须等于 `created_at`，编辑评论一律拒绝，comment ID 必须读回。
 
 Owner comment 固定格式：
 
@@ -63,14 +63,15 @@ previous_index_commit=<40hex>
 index_sha256=<64hex>
 normalized_diff_sha256=<64hex>
 changed_ids=<sorted-comma-separated-ids>
-approved_at_utc=<GitHub-comment-created_at>
+authorized_action=APPROVE_DISCOVERY_REGISTRY_UPDATE
+approval_scope=GOVERNANCE_REGISTRY_ONLY
 ```
 
-PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
+PRE_MERGE 必须核实独立 Review 的服务器 `submitted_at` 早于 owner comment 的 `created_at`，且 reviewer 最新审查状态仍为 `APPROVED`；最后一条同标记的 owner 决议优先，不能重用被取代的旧批准。PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
 
 ### POST_MERGE
 
-合并后重新 GET 同一 PR 和实际 commit，验证：`merged=true`、actual `merge_commit_sha`、merge commit first parent 等于 PRE_MERGE base、merge commit 的 `projects.yaml` raw bytes 等于已批准 candidate，并且该 commit 在 genesis→current main 的 first-parent 连续链上。只有 POST_MERGE 与完整链都通过，该变更才是 approved index；否则 `HOLD`，不降低分支保护或绕过核验。
+合并后重新 GET 同一 PR 和实际 commit，验证：`merged=true`、actual `merge_commit_sha`、服务器 `merged_at` 必须晚于 owner `created_at`、merge commit first parent 等于 PRE_MERGE base、merge commit 的 `projects.yaml` raw bytes 等于已批准 candidate，并且该 commit 在 genesis→current main 的 first-parent 连续链上。只有 POST_MERGE 与完整链都通过，该变更才是 approved index；否则 `HOLD`，不降低分支保护或绕过核验。
 
 ## 5. 项目读取与统一报告
 
@@ -86,7 +87,7 @@ PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
 
 ## 6. 漂移、冷恢复与停止
 
-冷恢复顺序：verify policy tag/manifest/genesis → pin main H1 → read strict index at H1 → verify first-parent/approvals → 仅核 verified active 项目的目标文件 → re-read main H2。若 H1≠H2，只允许从头重做一次独立快照；再次漂移则 `REGISTRY_HEAD_DRIFT/HOLD`，绝不拼接两次结果。
+冷恢复顺序：从插件取得**独立于 YAML 的精确政策 Commit pin** → Tag 解引用匹配 pin → 从固定 Commit 核运行的 validator、Schema、GENESIS 原始 SHA256 → pin main H1 → read strict index at H1 → verify first-parent/approvals → 生成临时 `VerifiedRegistrySnapshot` → 仅核该快照内 verified active 项目文件 → re-read main H2。未经审计的 YAML dict 即使写着 `registration: verified` 也只能 `REGISTRY_CHAIN_UNVERIFIED/BLOCKED`。若 H1≠H2，只允许从头重做一次独立快照；再次漂移则 `REGISTRY_HEAD_DRIFT/HOLD`，绝不拼接两次结果。
 
 若 v0.2.0 Tag 未发布或无法解引用、Manifest/GENESIS/index 不匹配、GitHub GET 失败、项目 403/404、Git mode 不安全或审批不足，只报告准确缺口。不得自动采用项目、派工、恢复 thread、变更 writer、改保护设置或创建第二账本/服务。
 
@@ -96,8 +97,10 @@ PRE_MERGE 不得声称已知未来 merge SHA，也不构成生效。
 python3 -m venv /private/tmp/hagov-registry-venv
 /private/tmp/hagov-registry-venv/bin/python -m pip install --disable-pip-version-check -r requirements-registry.lock
 /private/tmp/hagov-registry-venv/bin/python -m pytest -q
-/private/tmp/hagov-registry-venv/bin/python registry/validate_registry.py validate-local
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-local
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-candidate
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . reviewer-readiness
 git diff --check
 ```
 
-`validate-local` 只证明当前 raw files、Schema、GENESIS binding 与 Manifest 一致。`pre-merge`、`post-merge`、`audit-chain` 需要正式 Tag 和认证 GitHub GET；本候选在 Tag 未发布期间必须 HOLD，不能把本地测试冒充 CI、GitHub 审批或发布通过。
+`validate-local` 仅校验首次政策发布时的原始 GENESIS，不可作为未来每次动态索引变更的 CI 门禁。`validate-candidate` 只做 Schema 和固定文件预检，必须输出 `registry_trusted:false`、`approval_verified:false`，不可深扫。`reviewer-readiness` 仅读 GitHub 实际协作者；只有一个 owner 时 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`，不能用另一个 AI 会话冒充不同 GitHub 审查账号，CI 替代审查属于另需批准的策略。正式 `audit-main` 必须提供插件单独锁定的 `--expected-policy-commit`。`pre-merge`、`post-merge`、`audit-main` 需要正式 Tag 和认证 GitHub GET；未发布期间必须 HOLD。

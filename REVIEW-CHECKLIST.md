@@ -88,3 +88,10 @@ project_adoptions: []
 12. 使用锁定依赖运行不少于 50 个 collected pytest items、`validate-local` 与 `git diff --check`；记录实际退出码。未实际触发的 CI、GitHub 审批、merge、Tag、远端私库读取和业务验收必须列为未证明。
 
 精确本地命令见 `README.md` / `REGISTRY-PROTOCOL.md`。审查者不得把本地 0 exit code 写成 PR 已批准、CI 已通过或 v0.2.0 已发布。
+
+## P2.1 准确候选补充审查（候选）
+
+- 验证 GitHub 独立 `APPROVED` 精确 HEAD Review 的 `submitted_at` 早于不可编辑 owner comment `created_at`，且该时间早于 `merged_at`；评论 `updated_at` 必须等于 `created_at`，批准正文不得伪造未来时间。
+- 当前若只有 owner 协作者，必须出 `INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE/HOLD`；AI 会话与 CI 不可冒充不同 GitHub 审查身份。若改用另一审查保证等级，需独立批准而非自动降级。
+- 测试 raw YAML、假 `verified` 字典、未登记项目均无法取得项目扫描能力；缺少外部 policy pin、运行 validator/Schema/GENESIS 与正式 Tag 不匹配时拒绝。
+- 初始 GENESIS 用 `validate-local`，未来动态变更候选用无权力效果的 `validate-candidate`；后者 `registry_trusted:false`、`approval_verified:false`，仍需独立 Review 与所有审批链核验。

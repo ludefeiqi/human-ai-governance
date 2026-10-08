@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
+import json
+from pathlib import Path
 from typing import Any, Mapping
 
 import yaml
@@ -99,3 +102,21 @@ def active_genesis() -> dict[str, Any]:
         "approval_comment_marker": "HAGOV-REGISTRY-OWNER-APPROVAL-V1",
         "unreleased_behavior": "HOLD_V0_1_SEMANTICS",
     }
+
+
+def mock_released_policy_routes(routes: dict, repository: str, release: str, genesis: dict) -> None:
+    """Synthetic tagged policy blobs; all expected hashes use actual test checkout bytes."""
+    source = {
+        "registry/GENESIS.json": json.dumps(genesis).encode("utf-8"),
+        "registry/projects.schema.json": Path("registry/projects.schema.json").read_bytes(),
+        "registry/validate_registry.py": Path("registry/validate_registry.py").read_bytes(),
+    }
+    for path, payload in source.items():
+        routes[(f"repos/{repository}/contents/{path}", (("ref", release),))] = content(payload)
+    manifest = "".join(
+        f"{hashlib.sha256(raw).hexdigest()}  {path}\\n"
+        for path, raw in sorted(source.items())
+    ).replace("\\n", "\n")
+    routes[(f"repos/{repository}/contents/MANIFEST.sha256", (("ref", release),))] = content(
+        manifest.encode("ascii")
+    )

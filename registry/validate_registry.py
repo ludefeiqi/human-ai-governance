@@ -510,6 +510,8 @@ class PreMergeEvidence:
     normalized_diff_sha256: str
     changed_ids: tuple[str, ...]
     independent_reviewer: str
+    independent_review_submitted_at: str
+    owner_comment_id: int
     owner_comment_created_at: str
 
     def as_dict(self) -> dict[str, Any]:
@@ -523,6 +525,8 @@ class PreMergeEvidence:
             "normalized_diff_sha256": self.normalized_diff_sha256,
             "changed_ids": list(self.changed_ids),
             "independent_reviewer": self.independent_reviewer,
+            "independent_review_submitted_at": self.independent_review_submitted_at,
+            "owner_comment_id": self.owner_comment_id,
             "owner_comment_created_at": self.owner_comment_created_at,
             "approval_authentication": "GITHUB_ACCOUNT_ATTRIBUTION_ONLY_NOT_PASSWORD_SIGNATURE",
         }
@@ -560,47 +564,69 @@ def validate_pre_merge(
     index_sha = _sha256(current_raw)
     changed_ids = tuple(change["id"] for change in changes)
     reviews = _pages(api, _repo_endpoint(repository, f"pulls/{pr_number}/reviews"))
-    latest_by_user: dict[str, Mapping[str, Any]] = {}
+    latest_by_user: dict[str, tuple[dt.datetime, Mapping[str, Any]]] = {}
     for review in reviews:
         login = review.get("user", {}).get("login")
-        submitted = review.get("submitted_at") or ""
-        if login and submitted >= (latest_by_user.get(login, {}).get("submitted_at") or ""):
-            latest_by_user[login] = review
+        if not login or not review.get("submitted_at"):
+            continue
+        submitted = _parse_utc(review["submitted_at"])
+        if login not in latest_by_user or submitted >= latest_by_user[login][0]:
+            latest_by_user[login] = (submitted, review)
     author = pr.get("user", {}).get("login")
     owner = genesis["immutable_owner_account"]
     approved = sorted(
-        login
-        for login, review in latest_by_user.items()
-        if review.get("state") == "APPROVED"
-        and review.get("commit_id") == expected_head
-        and login not in {author, owner}
+        (
+            (when, login, review)
+            for login, (when, review) in latest_by_user.items()
+            if review.get("state") == "APPROVED"
+            and review.get("commit_id") == expected_head
+            and login not in {author, owner}
+        ),
+        key=lambda item: (item[0], item[1]),
     )
     if not approved:
         raise RegistryError("INDEPENDENT_APPROVAL_MISSING", "no independent APPROVED review on exact head")
+
     comments = _pages(api, _repo_endpoint(repository, f"issues/{pr_number}/comments"))
     expected_fields = {
+        "authorized_action": "APPROVE_DISCOVERY_REGISTRY_UPDATE",
+        "approval_scope": "GOVERNANCE_REGISTRY_ONLY",
         "candidate_head": expected_head,
         "previous_index_commit": base_sha,
         "index_sha256": index_sha,
         "normalized_diff_sha256": diff_sha,
         "changed_ids": ",".join(changed_ids),
     }
-    valid_comment: Mapping[str, Any] | None = None
+    # Time is GitHub-owned metadata. It must NEVER be guessed and placed in the
+    # user's approval body before GitHub creates the comment.
+    owner_decisions: list[tuple[dt.datetime, Mapping[str, Any]]] = []
     for comment in comments:
         if comment.get("user", {}).get("login") != owner:
             continue
-        parsed = _parse_owner_comment(comment.get("body", ""), genesis["approval_comment_marker"])
-        if parsed is None:
+        if not str(comment.get("body", "")).startswith(genesis["approval_comment_marker"]):
             continue
-        created_at = comment.get("created_at", "")
         try:
-            _parse_utc(created_at)
-        except RegistryError:
-            continue
-        if parsed == {**expected_fields, "approved_at_utc": created_at}:
-            valid_comment = comment
-    if valid_comment is None:
-        raise RegistryError("OWNER_APPROVAL_MISSING", "owner comment is absent or not bound to exact evidence")
+            created = _parse_utc(comment.get("created_at", ""))
+            updated = _parse_utc(comment.get("updated_at", ""))
+        except (RegistryError, TypeError, AttributeError):
+            raise RegistryError("OWNER_APPROVAL_TIME_INVALID", "owner comment lacks trustworthy UTC metadata")
+        if updated != created:
+            raise RegistryError("OWNER_APPROVAL_EDITED", "owner approval comment was edited after creation")
+        owner_decisions.append((created, comment))
+    if not owner_decisions:
+        raise RegistryError("OWNER_APPROVAL_MISSING", "owner comment is absent")
+    owner_decisions.sort(key=lambda item: (item[0], item[1].get("id", 0)))
+    created, valid_comment = owner_decisions[-1]
+    parsed = _parse_owner_comment(valid_comment.get("body", ""), genesis["approval_comment_marker"])
+    if parsed != expected_fields:
+        raise RegistryError("OWNER_APPROVAL_MISMATCH", "latest owner approval does not bind exact reviewed evidence")
+    qualifying_reviews = [(when, who) for when, who, _ in approved if when < created]
+    if not qualifying_reviews:
+        raise RegistryError("REVIEW_AFTER_OWNER_APPROVAL", "independent review must precede owner approval")
+    review_at, reviewer = qualifying_reviews[-1]
+    comment_id = valid_comment.get("id")
+    if not isinstance(comment_id, int) or comment_id <= 0:
+        raise RegistryError("OWNER_APPROVAL_ID_INVALID", "owner approval has no immutable GitHub comment ID")
     return PreMergeEvidence(
         pr_number=pr_number,
         candidate_head=expected_head,
@@ -608,8 +634,10 @@ def validate_pre_merge(
         index_sha256=index_sha,
         normalized_diff_sha256=diff_sha,
         changed_ids=changed_ids,
-        independent_reviewer=approved[0],
-        owner_comment_created_at=valid_comment["created_at"],
+        independent_reviewer=reviewer,
+        independent_review_submitted_at=review_at.isoformat().replace("+00:00", "Z"),
+        owner_comment_id=comment_id,
+        owner_comment_created_at=created.isoformat().replace("+00:00", "Z"),
     )
 
 
@@ -643,6 +671,10 @@ def validate_post_merge(
     pr = api.get(_repo_endpoint(repository, f"pulls/{pr_number}"))
     if not pr.get("merged") or pr.get("merge_commit_sha") != expected_merge:
         raise RegistryError("MERGE_COMMIT_MISMATCH", "PR is not merged at expected commit")
+    merged_at = _parse_utc(pr.get("merged_at", ""))
+    approved_at = _parse_utc(pre.owner_comment_created_at)
+    if not approved_at < merged_at:
+        raise RegistryError("OWNER_APPROVAL_AFTER_MERGE", "approval must precede the actual GitHub merge")
     commit = api.get(_repo_endpoint(repository, f"commits/{expected_merge}"))
     parents = commit.get("parents", [])
     if not parents or parents[0].get("sha") != pre.previous_index_commit:
@@ -702,6 +734,35 @@ def audit_first_parent_chain(
     }
 
 
+def reviewer_readiness(api: Api, genesis: Mapping[str, Any]) -> dict[str, Any]:
+    """R0-only diagnostic; never invites users or modifies repository permissions."""
+    repository = genesis["governance_repository"]
+    owner = genesis["immutable_owner_account"]
+    members = _pages(api, _repo_endpoint(repository, "collaborators"))
+    candidates = []
+    for item in members:
+        user = item.get("login")
+        permissions = item.get("permissions", {})
+        role = item.get("role_name")
+        if not user or user == owner:
+            continue
+        # GitHub review of a private repository needs an actually distinct account.
+        # Do not treat an AI session running as the same owner as another actor.
+        if (permissions.get("push") or permissions.get("admin") or
+                permissions.get("maintain") or role in {"write", "maintain", "admin"}):
+            candidates.append(user)
+    candidates.sort()
+    return {
+        "status": "CANDIDATES_PRESENT_NOT_APPROVED" if candidates else "HOLD",
+        "reason": None if candidates else "INDEPENDENT_GITHUB_REVIEWER_UNAVAILABLE",
+        "collaborator_count": len(members),
+        "eligible_other_github_reviewers": candidates,
+        "authorization_effect": "NONE",
+        "fallback_approved": False,
+        "note": "Different AI windows using one GitHub owner account are not independent GitHub reviewers.",
+    }
+
+
 def _registry_branch_head(api: Api, genesis: Mapping[str, Any]) -> str:
     repository = genesis["governance_repository"]
     branch = urllib.parse.quote(genesis["registry_branch"], safe="")
@@ -712,19 +773,118 @@ def _registry_branch_head(api: Api, genesis: Mapping[str, Any]) -> str:
     return head
 
 
+_VERIFIED_SNAPSHOT_SEAL = object()
+
+
+class VerifiedRegistrySnapshot:
+    """Ephemeral, immutable scan capability minted only after full GitHub R0 provenance checks.
+
+    A YAML mapping claiming registration=verified is not a capability.
+    """
+
+    __slots__ = ("index_head", "policy_commit", "index_sha256", "_canonical_index", "_seal")
+
+    def __init__(
+        self, index: Mapping[str, Any], raw: bytes, index_head: str,
+        policy_commit: str, seal: object,
+    ) -> None:
+        if seal is not _VERIFIED_SNAPSHOT_SEAL:
+            raise RegistryError("REGISTRY_CHAIN_UNVERIFIED", "only verified GitHub provenance can mint a scan snapshot")
+        self.index_head = index_head
+        self.policy_commit = policy_commit
+        self.index_sha256 = _sha256(raw)
+        self._canonical_index = _canonical_json(index)
+        self._seal = seal
+
+    def project_entry(self, project_id: str) -> Mapping[str, Any] | None:
+        return json.loads(self._canonical_index)["projects"].get(project_id)
+
+    def report(self) -> dict[str, Any]:
+        return build_report(json.loads(self._canonical_index))
+
+
+def verify_policy_sources_from_immutable_commit(
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    expected_policy_commit: str,
+) -> None:
+    """Bind the executing validator, schema and genesis to tagged policy bytes.
+
+    The caller must already have checked the annotated Tag against an external
+    exact Commit pin. This is not a claim that the unsigned tag is signed.
+    """
+    repo = genesis["governance_repository"]
+    manifest_raw, _ = _content_bytes(api, repo, "MANIFEST.sha256", expected_policy_commit)
+    try:
+        lines = manifest_raw.decode("ascii").splitlines()
+    except UnicodeDecodeError as exc:
+        raise RegistryError("RELEASE_MANIFEST_INVALID", "policy manifest is not ASCII") from exc
+    manifest: dict[str, str] = {}
+    for line in lines:
+        match = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9_./-]+)", line)
+        if not match:
+            raise RegistryError("RELEASE_MANIFEST_INVALID", "invalid immutable policy manifest row")
+        digest, path = match.groups()
+        if path in manifest or path == "projects.yaml":
+            raise RegistryError("RELEASE_MANIFEST_INVALID", "duplicate or dynamic index in immutable manifest")
+        manifest[path] = digest
+    required = {
+        "registry/GENESIS.json",
+        "registry/projects.schema.json",
+        "registry/validate_registry.py",
+    }
+    if not required.issubset(manifest):
+        raise RegistryError("RELEASE_MANIFEST_INCOMPLETE", "missing trusted policy entry points")
+    actual = {}
+    for path in sorted(required):
+        raw, _ = _content_bytes(api, repo, path, expected_policy_commit)
+        if _sha256(raw) != manifest[path]:
+            raise RegistryError("RELEASE_FILE_HASH_MISMATCH", "immutable policy file has wrong hash", path=path)
+        actual[path] = raw
+    try:
+        remote_genesis = json.loads(actual["registry/GENESIS.json"])
+        remote_schema = json.loads(actual["registry/projects.schema.json"])
+        running_validator = Path(__file__).read_bytes()
+    except (ValueError, UnicodeDecodeError, OSError) as exc:
+        raise RegistryError("RELEASE_POLICY_INPUT_INVALID", "cannot compare running policy inputs") from exc
+    if remote_genesis != genesis:
+        raise RegistryError("GENESIS_POLICY_MISMATCH", "local genesis differs from immutable released genesis")
+    if _canonical_json(remote_schema) != _canonical_json(schema):
+        raise RegistryError("SCHEMA_POLICY_MISMATCH", "runtime schema differs from immutable released schema")
+    if _sha256(running_validator) != manifest["registry/validate_registry.py"]:
+        raise RegistryError("VALIDATOR_POLICY_MISMATCH", "running validator differs from tagged policy file")
+
+
 def audit_main_snapshot(
-    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Audit one coherent main snapshot, retrying exactly once on ref drift."""
+    api: Api, genesis: Mapping[str, Any], schema: Mapping[str, Any],
+    *, expected_policy_commit: str | None = None,
+    mint_scan_snapshot: bool = False,
+) -> dict[str, Any] | VerifiedRegistrySnapshot:
+    """Read a coherent verified snapshot; scan authority needs external immutable policy pin."""
+    if not expected_policy_commit or not SHA40_RE.fullmatch(expected_policy_commit):
+        raise RegistryError("POLICY_PIN_REQUIRED", "caller must supply immutable policy commit pinned outside YAML")
+    actual_policy_commit = resolve_release_commit(api, genesis)
+    if actual_policy_commit != expected_policy_commit:
+        raise RegistryError("POLICY_PIN_MISMATCH", "tag target is not the caller-pinned governance commit")
+    verify_policy_sources_from_immutable_commit(api, genesis, schema, actual_policy_commit)
 
     observed: list[dict[str, str]] = []
     for attempt in (1, 2):
         start = _registry_branch_head(api, genesis)
         result = audit_first_parent_chain(api, genesis, schema, start)
+        raw, _ = _content_bytes(api, genesis["governance_repository"], genesis["registry_path"], start)
+        index = load_index_bytes(raw, schema)
         end = _registry_branch_head(api, genesis)
         observed.append({"start": start, "end": end})
         if start == end:
-            return {**result, "phase": "MAIN_SNAPSHOT", "attempts": attempt, "head_observations": observed}
+            if mint_scan_snapshot:
+                return VerifiedRegistrySnapshot(
+                    index, raw, start, actual_policy_commit, _VERIFIED_SNAPSHOT_SEAL
+                )
+            return {
+                **result, "phase": "MAIN_SNAPSHOT", "policy_commit": actual_policy_commit,
+                "index_sha256": _sha256(raw), "registry": build_report(index),
+                "attempts": attempt, "head_observations": observed,
+            }
     raise RegistryError(
         "REGISTRY_HEAD_DRIFT",
         "registry main changed during both bounded snapshot attempts",
@@ -763,7 +923,17 @@ def verify_git_mode(api: Api, repository: str, tree_sha: str, path: str) -> dict
     raise RegistryError("PROJECT_PATH_MISSING", f"cannot resolve {path}")
 
 
-def verify_project_sources(api: Api, project_id: str, entry: Mapping[str, Any]) -> dict[str, Any]:
+def verify_project_sources(
+    api: Api, project_id: str, snapshot: VerifiedRegistrySnapshot | Any,
+) -> dict[str, Any]:
+    # Reject raw projects.yaml entries, even when they self-assert "verified".
+    # The snapshot is minted exclusively after tagged-policy pin, GitHub
+    # first-parent proof, registration approvals and main HEAD stability.
+    if not isinstance(snapshot, VerifiedRegistrySnapshot) or snapshot._seal is not _VERIFIED_SNAPSHOT_SEAL:
+        return {"project_id": project_id, "read": "BLOCKED", "reason": "REGISTRY_CHAIN_UNVERIFIED"}
+    entry = snapshot.project_entry(project_id)
+    if entry is None:
+        return {"project_id": project_id, "read": "BLOCKED", "reason": "PROJECT_NOT_IN_VERIFIED_REGISTRY"}
     if entry["lifecycle"] != "active":
         return {"project_id": project_id, "read": "NOT_ATTEMPTED", "reason": "LIFECYCLE_NOT_ACTIVE"}
     if entry["registration"] != "verified":
@@ -841,6 +1011,32 @@ def build_report(index: Mapping[str, Any], project_reads: Sequence[Mapping[str, 
     }
 
 
+def candidate_schema_precheck(
+    genesis: Mapping[str, Any], index: Mapping[str, Any], raw: bytes,
+) -> dict[str, Any]:
+    """Local validation only: a later reviewed registry can differ from genesis.
+
+    A green CI check has NO registration, R2, or approval effect.
+    """
+    initial = _sha256(raw) == genesis["initial_index_sha256"]
+    if initial:
+        validate_genesis_index(genesis, index, raw)
+    # Never echo YAML's self-reported 'verified' as an effective registration.
+    report_source = json.loads(_canonical_json(index))
+    for entry in report_source["projects"].values():
+        entry["registration"] = "unverified"
+    return {
+        "status": "SCHEMA_PRECHECK_PASS",
+        "phase": "GENESIS_SCHEMA_PRECHECK" if initial else "DYNAMIC_SCHEMA_PRECHECK",
+        "index_sha256": _sha256(raw),
+        "approval_verified": False,
+        "registry_trusted": False,
+        "dispatch_authorized": False,
+        "writer_change_authorized": False,
+        "untrusted_registry_view": build_report(report_source),
+    }
+
+
 def _default_paths(root: Path) -> tuple[Path, Path, Path, Path]:
     return (
         root / "projects.yaml",
@@ -855,6 +1051,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("validate-local")
+    sub.add_parser("validate-candidate")
     pre = sub.add_parser("pre-merge")
     pre.add_argument("--pr", type=int, required=True)
     pre.add_argument("--expected-head", required=True)
@@ -864,7 +1061,9 @@ def _parser() -> argparse.ArgumentParser:
     post.add_argument("--expected-merge", required=True)
     chain = sub.add_parser("audit-chain")
     chain.add_argument("--head", required=True)
-    sub.add_parser("audit-main")
+    audited = sub.add_parser("audit-main")
+    audited.add_argument("--expected-policy-commit", required=True)
+    sub.add_parser("reviewer-readiness")
     return parser
 
 
@@ -875,17 +1074,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         schema = load_schema(schema_path)
         genesis = load_genesis(genesis_path)
-        if args.command == "validate-local":
+        if args.command in {"validate-local", "validate-candidate"}:
             index, raw = load_index(index_path, schema)
-            validate_genesis_index(genesis, index, raw)
             manifest = validate_manifest(root, manifest_path)
-            result: Mapping[str, Any] = {
-                "status": "VERIFIED",
-                "phase": "LOCAL",
-                "index_sha256": _sha256(raw),
-                "manifest_entries": len(manifest),
-                **build_report(index),
-            }
+            if args.command == "validate-local":
+                validate_genesis_index(genesis, index, raw)
+                result: Mapping[str, Any] = {
+                    "status": "VERIFIED",
+                    "phase": "LOCAL_GENESIS",
+                    "index_sha256": _sha256(raw),
+                    "manifest_entries": len(manifest),
+                    **build_report(index),
+                }
+            else:
+                result = {
+                    **candidate_schema_precheck(genesis, index, raw),
+                    "manifest_entries": len(manifest),
+                }
         else:
             api = GhApi()
             if args.command == "pre-merge":
@@ -896,12 +1101,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ).as_dict()
             elif args.command == "audit-chain":
                 result = audit_first_parent_chain(api, genesis, schema, args.head)
+            elif args.command == "audit-main":
+                result = audit_main_snapshot(
+                    api, genesis, schema, expected_policy_commit=args.expected_policy_commit
+                )
             else:
-                result = audit_main_snapshot(api, genesis, schema)
+                result = reviewer_readiness(api, genesis)
     except RegistryError as exc:
         print(json.dumps(exc.as_dict(), ensure_ascii=False, sort_keys=True))
         return 2
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    if args.command == "reviewer-readiness" and result.get("status") == "HOLD":
+        return 2
     return 0
 
 

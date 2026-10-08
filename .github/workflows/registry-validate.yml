@@ -29,7 +29,7 @@ jobs:
         run: python -m pip install -r requirements-registry.lock
       - name: Reproduce regression tests
         run: python -m pytest -q
-      - name: Validate fixed-policy manifest and genesis registry
-        run: python -m registry.validate_registry --root . validate-local
+      - name: Check immutable policy files and candidate registry schema (not approval)
+        run: python -m registry.validate_registry --root . validate-candidate
       - name: Reject whitespace errors
         run: git diff --check HEAD^ HEAD

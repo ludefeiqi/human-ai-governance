@@ -44,8 +44,16 @@ Exact local commands:
 python3 -m venv /private/tmp/hagov-registry-venv
 /private/tmp/hagov-registry-venv/bin/python -m pip install --disable-pip-version-check -r requirements-registry.lock
 /private/tmp/hagov-registry-venv/bin/python -m pytest -q
-/private/tmp/hagov-registry-venv/bin/python registry/validate_registry.py validate-local
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-local
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . validate-candidate
+/private/tmp/hagov-registry-venv/bin/python -m registry.validate_registry --root . reviewer-readiness
 git diff --check
 ```
 
 Local success is not CI, GitHub review, owner approval, merge, Tag publication, project adoption or business acceptance. Until the annotated `v0.2.0` Tag and all bound evidence exist, retain v0.1.0 semantics and HOLD dynamic discovery.
+
+### P2.1 trust-chain boundary (candidate only)
+
+Owner comments never prefill GitHub's future `created_at`. Exact-head independent GitHub `APPROVED` Review must precede the unedited owner approval comment and GitHub merge. The current repo only has its owner as a collaborator; `reviewer-readiness` reports `HOLD` until an actually distinct authorized GitHub account is available or a separately approved governance change establishes a different, honestly labelled assurance level. A second AI chat using the owner account is not a second GitHub actor.
+
+Cold-start deep scans require an externally pinned immutable policy commit, tagged validator/Schema/GENESIS hashes, complete first-parent approval chain, and a trusted `VerifiedRegistrySnapshot`; raw YAML status is never scan authority. `validate-candidate` allows future updated index bytes as a schema-only CI preflight, not registration approval. `audit-main` requires an external `--expected-policy-commit`.
