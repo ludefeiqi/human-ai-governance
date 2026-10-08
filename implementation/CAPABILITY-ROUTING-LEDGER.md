@@ -10,7 +10,7 @@
 - 本实现应建独立分支，以 PR #6 HEAD 为父版本；在新候选上单一写入、分阶段提交并以 Git HEAD/CAS 复核。独立 reviewer 只能只读。
 - 已安装插件：`human-ai-governance-bootstrap` v0.2.0，release `pluginrel_6ac761de71488191b66468d32bcbcaa3`；不在本工程阶段更新它的来源锁、安装或权限。
 - 项目目录 `projects.yaml` 与仓库根 `AGENTS.md` 不修改；不接管 HOT、DOT/ROOT、Codex 在途任务或生产环境。
-- 唯一最新工程 NEXT：**S3 — 安全加载器（候选实现）**。任何后续阶段必须按下表关口对账。
+- 唯一最新工程 NEXT：**S4 — 三场景适配（候选实现）**。任何后续阶段必须按下表关口对账。
 - 每次状态修改：先核候选分支实际远端 HEAD 与本地父系，单写提交、不强推；提交后重新 GET HEAD、文件差分与 CI。文档中的状态以**提交时可证明的事实**为准；PR 设计回执不代替用户授权。
 
 ## 1. 分阶段闭环
@@ -19,8 +19,8 @@
 | --- | --- | --- | --- | --- |
 | **S0 基线核对** | 核正式 Tag、PR #6、插件 release、根 AGENTS/作用域、既有测试基线 | 有精确 SHA、仓库/插件本轮实际读回，主分支未变 | **PASS**：见第0节 | S1 |
 | **S1 立账本** | 在独立候选分支记录唯一 NEXT、范围、权限、步骤和回退 | 仓库候选提交及远端 HEAD 读回、准确账本原文 | **PASS**：远端提交 `71f11ca3067505a567187ec885d747e5928f82b0` 已验证；本地 HEAD/父提交复核为 `71f11ca…` / `43d9ce7…` | S2 |
-| **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | **PASS（LOCAL）**：见第5节；未提交、未做远端 CI/独立复核/安装 | S3 |
-| **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | TODO | S4 |
+| **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | **PASS**：远端提交 `7174c9235ab2e6e3c2724a4a1a42a38bbe5e7487` 已读回；本轮入口核对的本地 HEAD 精确相同且初始 worktree clean；见第5节 | S3 |
+| **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | **PASS（LOCAL）**：见第6节；未提交、未做远端 CI/独立复核/安装/真实运行 | S4 |
 | **S4 三场景适配** | `project.restore`、`codex.observe`、`tool.route` 三个 R0 能力包，保留能力与工具两级选型 | 用户意图映射可复现；运行时只报告当次能力；不存在真实派工或写入 | TODO | S5 |
 | **S5 验收与性能** | 10/100/1000 合成规模，恶意输入、拒绝/降级/超时/UNKNOWN、状态一致性测试 | 记录目录读取次数、字节、所选正文数及耗时；无关能力规模扩大不引发正文全量加载；全 pytest、Manifest、diff 检查 | TODO | S6 |
 | **S6 插件入口候选** | 更新**候选源码**的短入口/能力目录指引、预置能力卡与当前正式政策来源边界 | 持续锁旧已发布政策，不能从本候选暗中启用新路由；旧插件身份与文件保留；测试合格 | TODO | S7 |
@@ -75,4 +75,30 @@
 4. `/private/tmp/hagov-p2-venv/bin/python -m registry.validate_registry --root . validate-candidate` → `status=SCHEMA_PRECHECK_PASS`、`phase=GENESIS_SCHEMA_PRECHECK`、`manifest_entries=48`、`approval_verified=false`、`registry_trusted=false`、`dispatch_authorized=false`、`writer_change_authorized=false`。
 5. `git diff --check` → PASS（无输出，退出码 0）。
 
-以上仅证明当前未提交 worktree 的本地静态 S2 合同与既有测试兼容；未运行远端 CI、独立 reviewer、真实 Codex 任务、MCP、业务验收、正式发布、插件安装或客户端冷启动。S3–S9 状态保持原样，S3 不因本次 PASS 自动获准执行。
+以上是 S2 提交前的本地证据；其候选提交 `7174c9235ab2e6e3c2724a4a1a42a38bbe5e7487` 后续已远端读回，本轮入口也核得本地 HEAD 精确相同。它仍不证明真实 Codex 任务、MCP、业务验收、正式发布、插件安装或客户端冷启动。
+
+## 6. S3 本地实施证据（2026-10-09）
+
+### 6.1 实际范围与固定接口
+
+- 新增 `capabilities/router.py`，公开 `route_capability(root: Path, intent: str, expected_catalog_sha256: str, budgets: Mapping[str, int] | None = None) -> RouteResult` 和带稳定 `code`/`as_dict()` HOLD 回执的 `RouterError`；没有 CLI、网络、shell、文件写入、工具调用或执行入口。
+- 输入只接受精确声明 intent 和独立传入的 64 位小写十六进制 catalog 原始字节 SHA256。加载顺序固定为 Schema、外部 pin 锚定的 root catalog、唯一命中 domain、选中能力及同 domain 依赖闭包；不会读取其它 domain 或能力正文。
+- 返回结构固定包含 `status`、验证/权限布尔值、`intent`、`domain_id`、`selected_capability_id`、依赖优先的 `capability_ids`、`loaded_paths`、含所有已读原始字节的 `raw_bytes`、逐能力 `modules[{capability_id,path,sha256,module_text,requires,required_tools}]`、合并后的 `required_tools` 及其声明状态。
+- 所有成功结果固定为 `verification_level: CATALOG_CHAIN_ONLY_NOT_POLICY_VERIFIED`、`policy_verified:false`、`authority_effect:NONE`、`dispatch_authorized:false`、`writer_change_authorized:false`、`tools_checked:false`、`candidate_only:true`；工具需求仅为 `DECLARED_ONLY_NOT_CHECKED`。
+- 路径限定为三段式 `capabilities/domains/*.json` 或 `capabilities/packs/*.md` 的 canonical POSIX 相对路径，逐级拒绝 symlink、目录、缺失、越界、反斜线和非法扩展。原始字节在 SHA256 前后均受限；硬上限为 Schema/root 各 16 KiB、domain 32 KiB、单 pack 24 KiB、总量 80 KiB、依赖 8、深度 8，调用方只能收紧不能放宽。
+- 新增 `tests/test_capability_loader.py` 的 24 项测试，覆盖四种成功 intent、未命中、pin 缺失/错误、domain/pack 篡改、重复身份/意图、遍历与非 POSIX 路径、逐级 symlink、单项/总量超限、循环/未知/跨域依赖、依赖计数、R2/副作用拒绝，以及精确只读所需四文件并禁止 socket/subprocess 行为。
+- 固定政策文件集合从 48 项增至 50 项，加入加载器和新测试；`MANIFEST.sha256` 对整个既有固定集合保留并更新受影响文件真实原始 SHA。未新增 `capabilities/__init__.py`，Python namespace package 已足够公开该模块。
+
+### 6.2 已执行验证
+
+1. `PYTHONDONTWRITEBYTECODE=1 /private/tmp/hagov-p2-venv/bin/python -m pytest -q -p no:cacheprovider tests/test_capability_loader.py` → 首轮因测试断言自身二次读取被追踪 pack 而为 `4 failed, 20 passed`；修正为先缓存预期 SHA/正文后重跑 → `24 passed in 1.31s`。失败没有被隐藏，也未改变加载器安全边界。
+2. `PYTHONDONTWRITEBYTECODE=1 /private/tmp/hagov-p2-venv/bin/python -m pytest -q -p no:cacheprovider` → `293 passed in 11.13s`。
+3. `PYTHONDONTWRITEBYTECODE=1 /private/tmp/hagov-p2-venv/bin/python -m registry.validate_registry --root . validate-local` → `status=VERIFIED`、`phase=LOCAL_GENESIS`、`manifest_entries=50`、`dispatch_authorized=false`、`writer_change_authorized=false`。
+4. `PYTHONDONTWRITEBYTECODE=1 /private/tmp/hagov-p2-venv/bin/python -m registry.validate_registry --root . validate-candidate` → `status=SCHEMA_PRECHECK_PASS`、`phase=GENESIS_SCHEMA_PRECHECK`、`manifest_entries=50`、`approval_verified=false`、`registry_trusted=false`、`dispatch_authorized=false`、`writer_change_authorized=false`。
+5. `git diff --check` → PASS（无输出，退出码 0）。
+6. `git diff --exit-code HEAD -- AGENTS.md projects.yaml registry/GENESIS.json CLIENT-CONTRACT.md clients releases drafts` → PASS（无输出，退出码 0）；根 AGENTS、项目索引、GENESIS、CLIENT 合同/元数据、已发布版本和历史草案均未改变。
+7. 验证底座为指定 venv 的 Python `3.14.7`；测试前磁盘可用约 `88 GiB`。沙箱拒绝 `sysctl -n hw.memsize`，故物理内存数值为 `UNKNOWN`；新增套件约 1.3 秒、全套约 11 秒，未观察到资源失败。
+
+### 6.3 未覆盖与停止边界
+
+本地 PASS 只覆盖静态候选代码、合成 `tmp_path` 文件和本地完整固定集合。没有执行网络、真实外部 MCP、Codex 业务任务、业务仓库读写、插件安装、Git commit/push/PR、远端 CI、独立外审、正式 main/Tag、客户端冷启动或业务验收；未验证项不得从本地链验证推导。S4–S9 未提前标 PASS，S8/S9 继续 HOLD。本轮在 S3 完成和本地证据读回后停止，不自动开始 S4。

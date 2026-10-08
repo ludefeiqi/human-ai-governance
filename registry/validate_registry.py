@@ -68,6 +68,7 @@ OPTIMIZATION_POLICY_FILES = {
     'RULE-MAP.md',
     'capabilities/catalog.json',
     'capabilities/catalog.schema.json',
+    'capabilities/router.py',
     'capabilities/domains/codex.json',
     'capabilities/domains/project.json',
     'capabilities/domains/tools.json',
@@ -89,6 +90,7 @@ OPTIMIZATION_POLICY_FILES = {
     'clients/plugin-update.json',
     'implementation/CAPABILITY-ROUTING-LEDGER.md',
     'tests/test_capability_catalog.py',
+    'tests/test_capability_loader.py',
     'tests/test_historical_approval.py',
     'tests/test_rule_contracts.py',
 }

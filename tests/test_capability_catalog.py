@@ -132,6 +132,7 @@ def test_references_stay_inside_the_static_capability_file_set():
     expected_files = {
         "capabilities/catalog.schema.json",
         "capabilities/catalog.json",
+        "capabilities/router.py",
         *(value["manifest"] for value in EXPECTED_DOMAINS.values()),
         *(value["document"] for value in EXPECTED_DOMAINS.values()),
     }
