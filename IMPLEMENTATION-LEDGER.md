@@ -26,7 +26,7 @@
 | S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **PASS**（仅静态候选，不授权运行） |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **PASS**（仅候选纯静态上下文） |
 | S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **PASS**（仅 R0 观测及禁用路由候选） |
-| S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
+| S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
 | S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
 | S7 插件采用与冷启动 | 受控更新现有插件，并做真实新窗口恢复 | 正式政策已发布且插件采用另批 | Plugin CAS 更新、新 Chat 验收、真实项目恢复 | 当前 release ID 读回、真实冷启动、无自动 writer 转移 | **HOLD_FOR_SEPARATE_PLUGIN_APPROVAL** |
 
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：执行 S5 10/100/1000 能力规模的合成路由效率与安全故障矩阵，对 context、真实/合成请求、实际计时、零副作用逐项标注，禁止虚报 token/业务首结果；S5 精确候选 CI 与独立复核前不得推进 S6。S6 发布、S7 插件采用需要分别明确授权。
+当前 **唯一 NEXT**：先对 S5 已实现的 10/100/1000 合成规模与安全验收候选核准确 GitHub CI、原始测量及独立只读审查；有阻断只返修实际命中范围。S5 未经独立 PASS 不得推进 S6；即便 S5 PASS，S6 发布与 S7 插件采用仍各须用户另行明确批准。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -149,3 +149,22 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 准确 HEAD 的独立 `codex exec --ephemeral -m gpt-5.6-sol --sandbox read-only` 对 S4 差分、安全合同、真实 R0 观察限制和 47 项 Manifest 完整性进行只读设计复核，结论 **APPROVE_DESIGN**，未见 S4 范围内阻断；复核者未替代本地 368 tests 或原生 GitHub CI。
 - **S4 PASS_R0_PROBED_ROUTE_CANDIDATE**：已验证 GitHub 私库只读、Codex App Server 真实 `thread/list`、本会话 MCP 暴露方法；路由器仅是被禁用的提案生成器，仍未在正式插件生效或执行实际受控选中工具。治理目录业务采用、身份/权限、生产、writer、原工作线程后态均未改变；对 Codex 已存在任务没有可匹配 ID，故原任务运行态保持 `RUNTIME_UNKNOWN`，`thread/read` 未实测。
 - 当前唯一 NEXT=S5。此 S4 通过不授予 R2/R3、候选策略发布或插件升级，亦不替代 S5 的 10/100/1000 性能与攻击负例。
+
+
+## 14. S5 性能/安全合成验收候选（2026-10-09，待独立复审）
+
+- S4 前置：原 GitHub Draft PR #6 `80c55030fc56ca81b673c5d9a3f13355124a851c` 的 GitHub CI completed/success job `113470716724` 及独立 Codex R0 `APPROVE_DESIGN`；接受账本 HEAD `08385e410d127247467c1c07cc01d12b66793efe` 的 validate job `113471764056` completed/success；未修改正式 main v0.2.0 / Tag / Plugin / 业务仓库。
+- 新增 `registry/benchmark_route_scaling.py` 与 `tests/test_route_scaling.py`，三组 **10/100/1000 合成能力元数据**固定同一请求 `codex.observe + project.restore`、同一三项相关能力与依赖图、同一 Python 会话及 30 次测量。**先完整检查所有合成 N 项依赖图**（未选中的坏依赖/环也要 fail-closed），再单独计最小闭包选择时间；所选上下文来自真实 S2 已禁用三张卡的序列化正文，不把全部合成目录冒充模型正文。
+- 单轮结果（仅此环境/样本，含性能噪声）：
+
+  | 合成 N | 全目录元数据字符 | 合成根分片索引字符 | 所选三卡正文字符 | 无关正文数 |
+  | ---: | ---: | ---: | ---: | ---: |
+  | 10 | 209 | 150 | 3450 | 0 |
+  | 100 | 2279 | 151 | 3450 | 0 |
+  | 1000 | 22979 | 152 | 3450 | 0 |
+
+- 对同一个 synthetic.extra 前缀的**假设性**二级目录分片，根摘要维持四个分组，选中分片索引为 48 字符；这是合成 taxonomy 的实验，不是现有 S3 真实分片装载已部署，也不证明任意类别增长都恒时或无需完整政策完整性校验。若实际类别数量增长，必须另行独立实施分片与实测。全量原目录索引字符会随 N 增长，成本明确未隐瞒。
+- 单次 Python monotonic 本地微测量：N=1000 全合成元数据依赖预检约 1.51 ms；仅最小选择 30 次中位数约 0.0033 ms（对模型/远端延迟毫无代表性）。`TOKEN_UNKNOWN`，正式启动时 `real_remote_fetch_count`、`real_probe_count`、`real_time_to_first_valid_result_ms` 均 `NOT_MEASURED`；本合成实验 `synthetic_network_calls=0`、`external_side_effects=0`。
+- **单独真实 R0 GitHub 读取**：对精确已验证 Commit `08385e410d127247467c1c07cc01d12b66793efe` 的 `IMPLEMENTATION-LEDGER.md` 发起 `gh api --method GET`，真实返回 Blob `e9c17006cb41de12aaa6d9dd980656159831c485` 与 Git 树预期一致、正文含 S4 PASS 与 S5 NEXT；本机单次从请求到核真正文 **1837.34 ms**，已知 GitHub GET 计数 1、无业务写操作。该数字是 GitHub 读取探针耗时，**不是**完整 Global Controller / ChatGPT 的 time-to-first-valid-result，也不代替正式政策完整文件远端校验。
+- 27 项新增 S5 安全/规模测试覆盖 N/重复次数边界、上下文最小加载、metadata 线性增长、合成分片局限、未选中依赖环/未知模块完整预检、S2 未授权卡/Source Lock 篡改、明确禁止网络/子进程/真实副作用以及返回状态的真实类型；继续保留 S2/S3/S4 既有拒绝与失败恢复测试。全量 **395 passed**，`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`（approval_verified=false、registry_trusted=false）；Manifest 固定文件 49 项且原字节摘要重算。
+- 阶段裁定：**S5 IMPLEMENTED_CANDIDATE / REVIEW_PENDING**。必须对准确新 HEAD GitHub CI 和独立设计复核再核对；证据边界以合成规模安全、候选本地计算与一次真实 GitHub R0 为止。不得冒称正式 plugin 容量/平均速度或模型 token 实测。
