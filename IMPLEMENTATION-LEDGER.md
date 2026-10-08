@@ -25,7 +25,7 @@
 | S1 逻辑路由设计 | 定义 L0/L1/L2/L3、两级路由及失败语义 | S0 PASS | `CAPABILITY-ROUTING-DESIGN.md`、依赖/权限/状态及安全反例 | 设计文件与账本逐项映射；独立设计复核另记，不冒称已过 | **PASS_DESIGN：修订后独立只读 APPROVE_DESIGN** |
 | S2 最小能力目录 | 3 个只读能力卡、严格 Schema、依赖检查 | S1 独立复核结论无阻断 | 项目恢复、Codex 观察、MCP 选型三项能力及测试 | 非法/循环依赖/越权/未知路径拒绝、目录确定性加载 | **PASS**（仅静态候选，不授权运行） |
 | S3 受控装载器 | 解析请求→加载最小相关能力→计算覆盖 | S2 PASS | 加载器、实际加载轨迹、分级哈希证据 | 无关模块未加载；现行全量政策校验不被假减免 | **PASS**（仅候选纯静态上下文） |
-| S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **IMPLEMENTED_CANDIDATE / REVIEW_PENDING** |
+| S4 真实工具路由适配 | 对接已授权 GitHub、Codex 只读、MCP 发现 | S3 PASS | 适配器、权限探测、合法候选选择及补位 | 真实接口探针、UNKNOWN/拒绝不可绕行；不产生副作用 | **PASS**（仅 R0 观测及禁用路由候选） |
 | S5 性能与安全验收 | 10/100/1000 能力规模、恶意输入及故障 | S4 PASS | 性能数据、正负例与失败恢复报告 | token、请求数、首个有用动作时间和副作用证据 | **NOT_STARTED** |
 | S6 治理候选发布关口 | 准确候选审查、差分、CI、用户正式批准 | S5 PASS | 独立审查、准确发布申请、Tag/Manifest 更新方案 | 未获得具体发布批准前只能 HOLD，绝不自合并/自签发 | **HOLD_FOR_EXPLICIT_RELEASE_APPROVAL** |
 | S7 插件采用与冷启动 | 受控更新现有插件，并做真实新窗口恢复 | 正式政策已发布且插件采用另批 | Plugin CAS 更新、新 Chat 验收、真实项目恢复 | 当前 release ID 读回、真实冷启动、无自动 writer 转移 | **HOLD_FOR_SEPARATE_PLUGIN_APPROVAL** |
@@ -70,7 +70,7 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 
 每次对账记录：`stage / exact HEAD / expected deliverables / actual proofs / failures or UNKNOWN / decision / NEXT / scope-effect`。
 不凭编辑本账本声明 PASS；每次成功至少绑定可访问 Commit、准确测试或本次真实读回。
-当前 **唯一 NEXT**：S4 先在准确候选 HEAD 验证原生 GitHub CI，并由独立 R0 复核真实探针与 adapter 安全合同。若有阻断仅修准确范围；未经 S4 独立 PASS 不得进入 S5。S6 正式发布及 S7 插件采用继续分开授权。
+当前 **唯一 NEXT**：执行 S5 10/100/1000 能力规模的合成路由效率与安全故障矩阵，对 context、真实/合成请求、实际计时、零副作用逐项标注，禁止虚报 token/业务首结果；S5 精确候选 CI 与独立复核前不得推进 S6。S6 发布、S7 插件采用需要分别明确授权。
 禁止在 S1 审查未结前把 S2–S7 标为 PASS；不通过更换执行者或新窗口重新编号绕行。
 
 ## 5. S1 两轮独立设计审查（2026-10-09）
@@ -141,3 +141,11 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 后备工具只在主路径 `TOOL_UNAVAILABLE / NOT_CONFIGURED` 且宿主明确允许、备选同 scope 已读探针可用时形成 **候选**；遇 `AUTHORIZATION_BLOCKED / RUNTIME_UNKNOWN / EFFECT_UNKNOWN` 或未探测均 HOLD，不改用 RDC/执行接口绕过。Codex 当前仅规划 `thread/list`；`thread/read includeTurns=false` 被登记为严格只读候选但无既有线程 ID，未宣称真实读取验收完成。
 - 对应 41 项 S4 定向测试；全量 `368 passed`、`validate-local VERIFIED`、`validate-candidate SCHEMA_PRECHECK_PASS`（approval_verified=false、registry_trusted=false）；Manifest 47 项且变动文件 raw SHA 重算；实际试载三个候选路由均零内部工具调用和零派工。实际 R0 探针由宿主/短命只读进程执行，因此**不能**把候选适配器的 tools_invoked=0 误读为整个验收阶段零只读查询。
 - 阶段裁定：**S4 IMPLEMENTED_CANDIDATE / REVIEW_PENDING**。本段仅为候选和当次观察事实；真实权限和特定工作运行状态必须在使用时再核。准确新 HEAD GitHub CI 与独立 R0 审查通过后才能判 S4 PASS；未完成独立复核前 S5–S7 不推进。
+
+
+## 13. S4 精确候选独立通过（2026-10-09）
+
+- S4 准确候选 HEAD：`80c55030fc56ca81b673c5d9a3f13355124a851c`，原 GitHub Draft PR #6。GitHub Actions `P2 Registry Candidate Verification/validate` completed/success，job `113470716724`，https://github.com/ludefeiqi/human-ai-governance/actions/runs/37823634185/job/113470716724；远端固定 Git Tree `2f0780a391b9fe2439752f600c650ea1857a37c0` truncated=false，新增适配器/测试及 Manifest 均 `blob/100644`。
+- 准确 HEAD 的独立 `codex exec --ephemeral -m gpt-5.6-sol --sandbox read-only` 对 S4 差分、安全合同、真实 R0 观察限制和 47 项 Manifest 完整性进行只读设计复核，结论 **APPROVE_DESIGN**，未见 S4 范围内阻断；复核者未替代本地 368 tests 或原生 GitHub CI。
+- **S4 PASS_R0_PROBED_ROUTE_CANDIDATE**：已验证 GitHub 私库只读、Codex App Server 真实 `thread/list`、本会话 MCP 暴露方法；路由器仅是被禁用的提案生成器，仍未在正式插件生效或执行实际受控选中工具。治理目录业务采用、身份/权限、生产、writer、原工作线程后态均未改变；对 Codex 已存在任务没有可匹配 ID，故原任务运行态保持 `RUNTIME_UNKNOWN`，`thread/read` 未实测。
+- 当前唯一 NEXT=S5。此 S4 通过不授予 R2/R3、候选策略发布或插件升级，亦不替代 S5 的 10/100/1000 性能与攻击负例。
