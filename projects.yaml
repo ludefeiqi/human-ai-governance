@@ -1,4 +1,4 @@
-# Human–AI Governance P2 controlled dynamic registry (UNRELEASED CANDIDATE).
+# Human–AI Governance v0.2.0 controlled dynamic discovery index (effective only under verified tagged policy).
 # This is discovery metadata, NOT project adoption, dispatch approval or a second business ledger.
 schema_version: '0.2'
 registry_state: controlled_dynamic_index

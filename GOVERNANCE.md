@@ -79,7 +79,7 @@
 
 **R0 快速通道：** 已明确范围的单次只读查询，只保留目标、准确来源/版本、只读范围、停止条件和简短结果即可；不要求完整六字段卡或独立审查。共享写入、权限、认证和高影响操作禁止走此通道。
 
-## P2 Controlled Dynamic Registry · v0.2.0 candidate
+## P2 Controlled Dynamic Registry · v0.2.0 (effective only after verified Tag)
 
 — proposed Section 10: Controlled dynamic discovery registry
 
@@ -89,15 +89,15 @@ v0.2.0 只有在 annotated Tag 解引用 Commit、固定政策 Manifest、immuta
 
 正式索引历史以 release genesis commit 为根沿 `main` first-parent 连续验证。每个 index 变化与上一份 approved index 比较：ID 不得物理删除或改用途；repository/identity hash 不得替换；retired 保留 tombstone、identity、退役时间、上一索引 commit 和追加历史；同身份 re-activate 只可追加事件。每个发布后 registry PR 只许改变 `projects.yaml`，并须通过 exact-head 独立 APPROVED review、owner GitHub comment 的 head/index/diff/IDs/time 绑定，以及合并后 actual merge commit/first-parent/raw index 再核。合并前不得预言 merge SHA；证据不足一律 HOLD，不降低保护。
 
-读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以本候选的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。
+读取结果分别统计 lifecycle `active/paused/retired`、registration `verified/unverified`、read `VERIFIED/PARTIAL/BLOCKED/NOT_ATTEMPTED`，每维都合计 `registry_total`。只有 active+externally verified 可核项目目标文件；unverified 不深扫未知私库。项目实际账本结论标 `DECLARED`，治理建议标 `INFERRED`，二者不得互相冒充。完整机械规则以当前经正式 Tag 验证的 `REGISTRY-PROTOCOL.md`、Schema 和 validator 为准；项目当前状态与唯一 writer 仍只在项目自身权威入口。
 
-**P2.1 额外判据（候选）：** owner 批准评论不得预填未知 GitHub `created_at`；必须先有真实独立 GitHub actor 对准确 HEAD 的 `APPROVED` Review，再有未编辑的 owner 绑定评论，严格核对 `submitted_at < created_at < merged_at`。动态索引仅能经外部政策 Commit pin、固定 validator/Schema/GENESIS 与完整 first-parent 链核实后生成临时可信快照；原始 YAML `verified` 字样无读取授权。CI `validate-candidate` 只能做格式预检，不赋予登记/派工权限。仓库只有 owner、无独立 GitHub reviewer 时维持 HOLD，不伪造第二账号身份。
-
-
-**P2 封板补充（尚未正式发布）：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 20 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查已在候选实现机器验证，但仍是较低保证等级的待批准政策，不能在正式发布前自动替换已生效政策，也不得冒充真实 GitHub Reviewer。
+**P2.1 绑定规则：** owner 批准不得预填未知的 GitHub `created_at`。A 模式要求不同 GitHub actor 在准确 HEAD 的 `APPROVED` Review；B 模式必须有准确同 HEAD CI、owner 所发布的 AI R0 证明以及独立的 owner 批准评论，并证明 `CI < AI 证据 < owner < merge`。两者均使用实际 Tag/Manifest/GENESIS 及完整 first-parent 链核验；YAML `verified` 自述无读取授权，CI `validate-candidate` 不赋予登记或派工权。只有已发布政策明确指定的模式才能用于受控登记，不能因单账号环境自动降级。
 
 
-**P2 关口一 B 级候选已具备机器验证（尚未发布）：** 仅对纯发现 `projects.yaml` 变更，配置必须是随正式 Tag 固定的 `GENESIS.registry_update_approval_mode`；B 机器核验准确 HEAD/parent/index/diff/IDs、最新 GitHub Actions success、owner 发布的 AI R0 审查证明及 owner 单独批准评论，保证 `CI < AI审查证据 < owner批准 < merge` 并校验全链。B 的审查来源由 owner 账号陈述，不能证明存在第二 GitHub 账号或密码学独立 AI 身份，也不能自动生成私库读取授权、派工和 writer；旧 A 级仍保留为较高保证选择。只有新的 v0.2.0 政策得到准确版本的独立审查和用户**另一次正式发布批准**后，此候选 B 配置才可生效。本轮仍为 Draft，项目原有权限不变。
+**P2 受控读取边界：** 不再返回可构造的 `VerifiedRegistrySnapshot`；从正式政策完整 20 项原始哈希校验到项目 R0 读取必须在同一 `scan_authorized_main` 操作内完成，逐项读取前后和返回前都重查 `main` HEAD。原始 YAML 不能直接触发支持的扫描入口。这是应用级失败即停止校验，**不是持有 GitHub 凭据的任意 Python 代码无法调用 GitHub 的操作系统级锁**。后续登记 PR 仅允许原 `projects.yaml` 的 `status=modified`、拒绝重命名及 `previous_filename`。单账号多 AI 的 B 级审查已在候选实现机器验证，但仍是较低保证等级的待批准政策，不能在正式发布前自动替换已生效政策，也不得冒充真实 GitHub Reviewer。
+
+
+**P2 B 级机器验证（仅在新政策正式启用后适用）：** 仅对纯发现 `projects.yaml` 变更，配置必须是随正式 Tag 固定的 `GENESIS.registry_update_approval_mode`；B 机器核验准确 HEAD/parent/index/diff/IDs、最新 GitHub Actions success、owner 发布的 AI R0 审查证明及 owner 单独批准评论，保证 `CI < AI审查证据 < owner批准 < merge` 并校验全链。B 的审查来源由 owner 账号陈述，不能证明存在第二 GitHub 账号或密码学独立 AI 身份，也不能自动生成私库读取授权、派工和 writer；旧 A 级仍保留为较高保证选择。只有 `v0.2.0` 已经获得独立审查、用户准确版本发布批准、正式 annotated Tag 和运行端独立 policy pin 后，本版本 B 配置才能用于随后登记；发布本身不改变任何项目的现有权限。
 
 
 **关口一信任锚增补：** `validate_pre_merge`、`validate_post_merge`、`audit_first_parent_chain` 不可仅解析 Tag 就信任传入的可变 GENESIS；三个公开审批入口现在都要求调用方提供独立精确 `expected_policy_commit`，核对应有官方 Tag、20 项 Manifest raw SHA256、正在运行的 validator/Schema/GENESIS 后才选择 A/B。构造本地 B Mapping 不能将正式已发布的 A 模式偷换为 B；来源版本不合、校验失败或没有外部 pin 必须 HOLD。此项仍仅适用于治理发现索引，不授予其它项目权限。

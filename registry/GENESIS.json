@@ -7,7 +7,7 @@
   "release_commit_source": "dereferenced_annotated_tag",
   "registry_branch": "main",
   "registry_path": "projects.yaml",
-  "initial_index_sha256": "789d48e19f6643cf48aff333408b580d8ec0476dcab4fbae02cddb1ce5249c98",
+  "initial_index_sha256": "2908104618827faa35d05c87cb9e3dc3aa28c4dd45d4658ed9163553b3d6cbbc",
   "initial_project_identity_hashes": {
     "hot-auth-bbs": "sha256:6de1c66d2905c57b5558f413031c6d12bf516484912686573b075227d8e124b0"
   },

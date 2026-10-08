@@ -82,9 +82,9 @@
 
 **R0 micro-path：** 一次性低风险只读任务可用紧凑的目标、版本、只读边界、停止条件和证据结果，无须重复完整六字段卡或层层派审；有副作用时立即回归正常关口。
 
-## P2 Controlled Dynamic Registry · v0.2.0 candidate
+## P2 Controlled Dynamic Registry · v0.2.0 (Tag-gated)
 
-— proposed Section 8: Index is not dispatch
+— Section 8: Index is not dispatch
 
 Registry validator 仅可用认证 `gh api --method GET` 收集政策 Tag、PR、review、comment、commit、raw index 和目标 Git tree 证据。工具只提供账户归属事实，不提供密码签名；任何 GET/exit 0 也不等于审批成立。发布后的 registry 变更 PR 只许 `projects.yaml`，必须先做 exact-head PRE_MERGE，再在真实合并后做 POST_MERGE 与 first-parent chain 核验；合并前 merge SHA 为 UNKNOWN。
 
