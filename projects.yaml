@@ -1,9 +1,9 @@
-# 人机治理仓库 v0.1：仅项目入口索引，不复制项目动态执行状态。
-# v0.1.0 已发布项目索引；此条目仍不产生项目采用或业务执行授权。
-# 路径字段只允许项目声明的非敏感仓库相对文档路径；不得出现绝对路径、..、通配符、file://、私人 home/profile/cache/log、凭据或带 token 的 URL。
-# repository 只能 owner/repo；索引不授予任何新的读取、写入或执行权限。
-schema_version: '0.1'
-registry_state: published_reference_only
+# Human–AI Governance P2 controlled dynamic registry (UNRELEASED CANDIDATE).
+# This is discovery metadata, NOT project adoption, dispatch approval or a second business ledger.
+schema_version: '0.2'
+registry_state: controlled_dynamic_index
+registry_policy: v0.2.0
+registry_mode: discovery_only
 projects:
   hot-auth-bbs:
     display_name: HOT / AUTH / BBS
@@ -19,6 +19,10 @@ projects:
     dispatch_enabled: false
     writer_source: current_project_ledger_only
     latest_project_head: read_remote_at_use_time
+    registry_status: active
+    registration_provenance:
+      kind: carried_from_v0.1.0
+      policy_commit: 8f1f2677b20b6d19f6f887e0a7cce6081fa164b4
     notes: >-
       本条目仅为 reference_only；维持现有项目单写负责人及全部验收合同。
       本全局登记既不接管项目，也不宣布任何当前 NEXT 或 PASS。

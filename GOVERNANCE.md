@@ -78,3 +78,11 @@
 **激活批准回执：** 正式发布治理版本须持有并读回独立的非敏感记录：candidate commit、MANIFEST SHA256、独立审核回执/结论、用户明确发布批准的来源/时间、准确 release PR/commit/tag 与生效范围（默认仅治理仓库，项目采用集合为空）。任何缺项或冲突为 `APPROVAL_MISMATCH`，停止；宽泛 GitHub 写入许可不是“启用某版治理规则”的替代凭据。各项目采用和 writer 转移另行批准、另行更新该项目账本。
 
 **R0 快速通道：** 已明确范围的单次只读查询，只保留目标、准确来源/版本、只读范围、停止条件和简短结果即可；不要求完整六字段卡或独立审查。共享写入、权限、认证和高影响操作禁止走此通道。
+
+## P2 Controlled Dynamic Registry · v0.2.0 candidate
+
+— proposed Section 10: Controlled dynamic registry
+
+After a new v0.2.0 policy release is explicitly approved, global discovery may use `main/projects.yaml` from the **same governance repository** as a controlled dynamic *discovery-only* index. The policy tag itself remains pinned to an immutable Commit. The new version MUST explicitly include and hash `REGISTRY-PROTOCOL.md`, which controls source verification, approval validation, drift detection, and per-project quarantine. An unreviewed index change never grants project adoption or authorization. Every new/changed entry needs proof tied to the actual index diff and approved merge. Project current state and unique writer remain exclusively in the project authority ledger. P1/previous tags do not automatically adopt the new registry semantics.
+
+If a registry entry conflicts with baseline registration, if source commit lineage is not validated, or if review evidence is missing, the controller retains legacy authorized entries with independently verified status and marks only the changed scope `REGISTRATION_UNVERIFIED`; it must NOT silently accept newer main as policy authority. Registry changes are R2; only approved governance registry maintainer can submit them with branch-level CAS. No user authorization may be inferred solely from push permission.

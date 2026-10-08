@@ -69,3 +69,9 @@ project_adoptions: []
 ```
 
 以上是必须核实的非敏感证据关联，不是令牌/系统锁。缺项或不一致立即 `APPROVAL_MISMATCH`。独立审查批准设计，不等于批准规则生效；此前的通用 GitHub 写权限不自动启用这版治理。提升到根目录改变 AGENTS 作用域时必须核最终 PR diff，必要时重审；项目 writer 接管永远单独授权。
+
+## P2 Controlled Dynamic Registry · v0.2.0 candidate
+
+proposed additions
+
+Document the new policy tag, exact immutable release Commit, separate `main/projects.yaml` dynamic registry snapshot checks and per-project admission evidence. Add negative tests for unreviewed entries, changed project repo, drift, 403 partial, duplicate YAML keys, path traversal, inactive tombstones, and two-window concurrent cold start. Release must include an independent review of complete exact diff, manifest raw-byte hash, explicit user approval and published activation receipt; otherwise retain v0.1.0 semantics.

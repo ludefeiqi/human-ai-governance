@@ -25,3 +25,9 @@ HOT/AUTH/BBS remains managed in **ludefeiqi/dabing.lol** under its existing proj
 ## Updating this version
 
 Exact candidate + manifest -> independent read-only review -> explicit user approval bound to scope -> release-PR root diff review -> non-force merge/readback -> immutable Git tag. Later project adoption and any writer handoff require separate authority and evidence.
+
+## P2 Controlled Dynamic Registry · v0.2.0 candidate
+
+proposed additions
+
+Document the new policy tag, exact immutable release Commit, separate `main/projects.yaml` dynamic registry snapshot checks and per-project admission evidence. Add negative tests for unreviewed entries, changed project repo, drift, 403 partial, duplicate YAML keys, path traversal, inactive tombstones, and two-window concurrent cold start. Release must include an independent review of complete exact diff, manifest raw-byte hash, explicit user approval and published activation receipt; otherwise retain v0.1.0 semantics.

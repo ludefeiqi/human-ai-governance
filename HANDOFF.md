@@ -70,3 +70,9 @@ next_allowed_action: <READ_ONLY-or-EXPLICITLY_AUTHORIZED>
 - `DISPATCH_UNPROVEN`：新 R2/R3/副作用任务无法在获批项目**现有唯一权威入口**原子登记 `INTENT` 并读回，禁止派发，也不增设第二账本。
 - `HEAD_CONFLICT`：写入瞬间服务端拒绝旧 expected HEAD，停止；不得 force、自动 rebase 或用新工具规避。
 - 旧窗口失联不证明旧进程/云任务结束；新窗口先查唯一执行键、旧 writer、共享资源和剩余批准，无法确证时仅只读，不能抢写。
+
+## P2 Controlled Dynamic Registry · v0.2.0 candidate
+
+— proposed Section 8: Cross-window dynamic discovery
+
+At every explicit new-window cold start: pin policy → read registry branch HEAD → inspect exact index blob → validate policy ancestry/change approvals → enumerate all verified active entries → read each project's live HEAD/AGENTS/ledger → recheck registry HEAD → separate DECLARED from INFERRED and each action's actual authorization. If one project is blocked, complete the others; report `registry_total`, `verified`, `provisional`, `blocked`, `paused`, `retired` and exact coverage. If HEAD changes mid-read, bounded retry once; persistent drift → HOLD for registry snapshot, never combine states. Both windows remain R0 observers and cannot claim writer identity merely because they discover the same project.
