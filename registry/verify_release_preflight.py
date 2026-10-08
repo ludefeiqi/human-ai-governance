@@ -85,10 +85,17 @@ def _observed_snapshot(
     tag_object=_get(get_json,f"{prefix}/git/tags/{sha}")
     release=_get(get_json,f"{prefix}/releases/{release_id}")
     assets=_asset_map(release)
+    # Real GitHub tag target includes an additional URL. Pin its type/SHA
+    # fields, not the entire non-security metadata object.
+    target=tag_object.get("object") or {}
+    _must(type(target) is dict,"TAG_TARGET_OBJECT_INVALID")
     snapshot={
         "main":main.get("commit",{}).get("sha"),
         "tag_ref":{"type":obj.get("type"),"sha":sha},
-        "tag_object":{"tag":tag_object.get("tag"),"target":tag_object.get("object")},
+        "tag_object":{
+            "tag":tag_object.get("tag"),
+            "target":{"type":target.get("type"),"sha":target.get("sha")},
+        },
         "release":{
             "id":release.get("id"),"tag":release.get("tag_name"),
             "target":release.get("target_commitish"),
@@ -117,7 +124,7 @@ def _checksums(contents: bytes) -> dict[str,str]:
         lines=contents.decode("ascii").splitlines()
     except UnicodeError as exc:
         raise ReleasePreflightError("CHECKSUMS_FILE_NOT_ASCII") from exc
-    _must(2<=len(lines)<=15,"CHECKSUM_FILE_LINE_COUNT_INVALID")
+    _must(len(lines)==2,"CHECKSUM_FILE_LINE_COUNT_INVALID")
     mapping:dict[str,str]={}
     for line in lines:
         _must(len(line)<250 and "  " in line,"CHECKSUM_LINE_INVALID")

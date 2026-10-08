@@ -42,7 +42,10 @@ def fixture_data():
     data={
         f"{root}/branches/main":{"commit":{"sha":COMMIT}},
         f"{root}/git/ref/tags/{TAG}":{"object":{"type":"tag","sha":TAG_SHA}},
-        f"{root}/git/tags/{TAG_SHA}":{"tag":TAG,"object":{"type":"commit","sha":COMMIT}},
+        f"{root}/git/tags/{TAG_SHA}":{"tag":TAG,"object":{
+            "type":"commit","sha":COMMIT,
+            "url":f"https://api.github.com/repos/{REPO}/git/commits/{COMMIT}",
+        }},
         f"{root}/releases/123":{
             "id":123,"tag_name":TAG,"target_commitish":COMMIT,
             "draft":True,"immutable":False,"prerelease":False,
