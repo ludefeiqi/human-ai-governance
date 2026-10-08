@@ -10,7 +10,7 @@
 - 本实现应建独立分支，以 PR #6 HEAD 为父版本；在新候选上单一写入、分阶段提交并以 Git HEAD/CAS 复核。独立 reviewer 只能只读。
 - 已安装插件：`human-ai-governance-bootstrap` v0.2.0，release `pluginrel_6ac761de71488191b66468d32bcbcaa3`；不在本工程阶段更新它的来源锁、安装或权限。
 - 项目目录 `projects.yaml` 与仓库根 `AGENTS.md` 不修改；不接管 HOT、DOT/ROOT、Codex 在途任务或生产环境。
-- 唯一最新工程 NEXT：**S4 — 三场景适配（候选实现）**。任何后续阶段必须按下表关口对账。
+- 唯一最新工程 NEXT：**S4-CI-RECHECK — 核验三场景适配准确候选的真实 GitHub CI**。任何后续阶段必须按下表关口对账。
 - 每次状态修改：先核候选分支实际远端 HEAD 与本地父系，单写提交、不强推；提交后重新 GET HEAD、文件差分与 CI。文档中的状态以**提交时可证明的事实**为准；PR 设计回执不代替用户授权。
 
 ## 1. 分阶段闭环
@@ -21,7 +21,7 @@
 | **S1 立账本** | 在独立候选分支记录唯一 NEXT、范围、权限、步骤和回退 | 仓库候选提交及远端 HEAD 读回、准确账本原文 | **PASS**：远端提交 `71f11ca3067505a567187ec885d747e5928f82b0` 已验证；本地 HEAD/父提交复核为 `71f11ca…` / `43d9ce7…` | S2 |
 | **S2 目录与合同** | `CAPABILITY-ROUTING.md`、可信能力目录、Schema、三项能力元数据；固定 0 写权 | Schema/依赖/来源绑定校验、未登记/异常输入拒绝、文档引用清晰 | **PASS**：远端提交 `7174c9235ab2e6e3c2724a4a1a42a38bbe5e7487` 已读回；本轮入口核对的本地 HEAD 精确相同且初始 worktree clean；见第5节 | S3 |
 | **S3 安全加载器** | 确定性选择器、依赖有界展开、模块只读装载、来源哈希检查；不执行外部动作 | 单元与负例：路径/遍历/循环/未知能力/缺包/篡改一律拒绝；无授权产出 | **PASS（LOCAL + REMOTE_CI）**：已保留首次失败、修补提交 4792166577e6a3de718263a1360b26e27b020c39、GitHub 298/298 成功；见第7节 | S4 |
-| **S4 三场景适配** | `project.restore`、`codex.observe`、`tool.route` 三个 R0 能力包，保留能力与工具两级选型 | 用户意图映射可复现；运行时只报告当次能力；不存在真实派工或写入 | TODO | S5 |
+| **S4 三场景适配** | `project.restore`、`codex.observe`、`tool.route` 三个 R0 能力包，保留能力与工具两级选型 | 用户意图映射可复现；运行时只报告当次能力；不存在真实派工或写入 | **PASS（LOCAL）/ REMOTE_CI_PENDING**：17项场景测试、全套315项、53项Manifest通过；见第8节 | S5 |
 | **S5 验收与性能** | 10/100/1000 合成规模，恶意输入、拒绝/降级/超时/UNKNOWN、状态一致性测试 | 记录目录读取次数、字节、所选正文数及耗时；无关能力规模扩大不引发正文全量加载；全 pytest、Manifest、diff 检查 | TODO | S6 |
 | **S6 插件入口候选** | 更新**候选源码**的短入口/能力目录指引、预置能力卡与当前正式政策来源边界 | 持续锁旧已发布政策，不能从本候选暗中启用新路由；旧插件身份与文件保留；测试合格 | TODO | S7 |
 | **S7 独立审查与 PR 验收** | 新候选准确 HEAD 的独立 R0 审计，原生 GitHub CI，同 HEAD 的 diff+Manifest 和实施账本对账 | 无未处置的高/中风险、CI success、PR 与唯一 NEXT 记录一致 | TODO | S8 |
@@ -111,3 +111,12 @@
 - 最小修补：依 RELEASE_POLICY_FILESET 比对能力目录中的源码集合，只忽略 __pycache__ 下自动生成的 Python 缓存；未登记源码文件仍应阻断。
 - 再验要求：不禁用 Python 字节码，完整 pytest/Manifest/保护文件核验，推送准确修补 Commit，核 GitHub 新 CI success。远端原失败回执不抹除。
 - 当前状态 REMOTE_CI_PASS（仅本工程 S3）。纠正提交 4792166577e6a3de718263a1360b26e27b020c39 经 GitHub Actions 37810535389 / check 113425927102 真实读回 completed/success，原生日志 298 passed in 4.58s；候选预检 SCHEMA_PRECHECK_PASS、registry_trusted=false、dispatch_authorized=false。已经满足 S3 到 S4 的候选阶段转移，不涉及正式 Tag、插件安装、项目或生产许可。
+
+## 8. S4 本地场景验收（2026-10-09）
+
+- 前置 S3：GitHub CI 原始失败297/298，精确修补4792166577e6a3de718263a1360b26e27b020c39 后新CI 37810535389 / check 113425927102 实际298/298 success；S3关闭账本提交 159cce26c53eb6d4d2afa11ba06e08c299355eba 已远端读回。
+- 本轮新增 capabilities/scenarios.py、capabilities/SCENARIO-CONTRACT.md、tests/test_capability_scenarios.py；只改候选固定文件集与Manifest，不更改G0宪章、GENESIS、projects.yaml、AGENTS或已安装插件。
+- 四种任务：global_restore（已登记且获准的完整项目覆盖，逐项目HEAD/账本与必要运行态计划）、project_restore（单项目精确ID）、codex_observe（仅既有ID、规划thread/list/read而无start/resume）、tool_select（目标/会话/风险约束，调用方候选资料绝不代替实际探测）。
+- 无工具调用、无网络、无进程或副作用；所有结果PLAN_ONLY、policy_verified=false、authority_effect=NONE、dispatch=false、writer=false；同分候选保持AMBIGUOUS，不设品牌固定排行。补位只有此前目标相同且经调用方声明无副作用时仅作为计划，不授予执行权。
+- S4专项：17 passed；整套269+29+17=315 passed（Python默认字节码路径）；validate-local VERIFIED、validate-candidate SCHEMA_PRECHECK_PASS、53项候选Manifest，registry_trusted=false且无dispatch/writer权。
+- 本轮仅本地验证，真实GitHub CI须在S4实际提交后再检查；不能把专项测试当真实MCP运行、Codex业务执行或正式全局恢复。
