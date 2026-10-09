@@ -147,10 +147,12 @@ def test_controller_can_organize_work_without_default_dispatch_rights():
     execution=(ROOT/"CODEX-PROTOCOL.md").read_text(encoding="utf-8")
     assert "分解获授权目标" in core and "组织施工进度并协调结果验收" in core
     assert "组织权不自动产生项目写权" in core
-    assert "不得成为默认 writer" in core
+    assert "组织委托不能替代执行授权" in core
     assert "按既有授权组织任务分解与执行编排" in governance
-    assert "原现任 writer 的合规派工入口" in execution
-    assert "未获授权时只能提出派工建议" in execution
+    assert "实际有副作用的 Codex／Agent／MCP 派工只能由原项目现任 writer" in execution
+    assert "Controller 若要成为实际派工主体，必须先依原项目交接流程取得相应资格" in execution
+    assert "无效或缺失授权时仅能提出建议" in execution
+    assert "有副作用的实际派工仍由原项目现任 writer" in core
     assert "原项目唯一 INTENT" in core
     assert "第二权威 NEXT" in execution
 
@@ -159,4 +161,4 @@ def test_core_charter_exact_byte_tripwire_for_normal_extensions():
     # The checksum is NOT a signature or an independent check: a changing
     # charter and its test are a core amendment requiring independent approval.
     from hashlib import sha256
-    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="0717eaa27c75a7428e7ed8067b4ac54f2b2568c334b7288b9ff9dd1a60e8a9fb"
+    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="92fed2fce0d1468f6c9b788aac268dcd7a4ce8dc503103d849cbd06c84e46e8d"
