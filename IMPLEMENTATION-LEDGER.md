@@ -243,3 +243,10 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 用户只有一个 GitHub 账号，明确批准将 required_approving_review_count 从 1 调整为 0，并关闭 require_last_push_approval。Github PATCH 返回预期，修改前后完整 Protection JSON 已备份及核真；主分支强制 PR、严格 validate（GitHub Actions App 15368）、管理员约束、评论解决、旧批准失效、禁止强推删除均保留。Tag Ruleset 24772923 仍 Active、v* update/deletion 禁止、无 bypass。
 - 单人发布流程：Github hard gate=PR+CI，独立 AI R0 复核最新准确 HEAD/Manifest/CI 并保存证据，人类本人另行批准具体版本范围后才可执行 Merge/Tag/Release。AI 不等于独立 GitHub 真人 Review，owner 评论不等于本人密码学签名。此前只批准 1->0/关闭他人认可和完善审核流程，并未批准 v0.2.2 发布。
 - 修改文档/测试产生的新 Draft 候选 Commit 必须重新运行全量 CI、Manifest 哈希和独立只读复核，旧准确 HEAD 1960b8d2249cd03c65e0c49bc205603273878b49 的 460 tests + APPROVE_DESIGN_CANDIDATE_ONLY 不可作为新 HEAD 审查和发布授权。
+
+## 24. 单账号候选总纲历史版本纠偏（2026-10-09，独立 AI 审查再次否决）
+
+- 新 Public 单账号候选准确 HEAD 600b3d6cac170a25815ece5cb5d356e813ecbb96 完整测试 461 PASS，GitHub native validate job 113711456118 completed/success，Manifest 54 项原始摘要和 Git Git mode 均核真。独立 Codex gpt-5.6-sol / read-only / ephemeral 返回 REQUEST_CHANGES，并未修改仓库。
+- 该次否决发现治理最高正文 GOVERNANCE.md 第 3 行仍将 v0.2.1 写作候选、v0.2.0 写作现行正式版本，G2-RELEASE-01 第 41 行仍用当前语气描述私人仓库 GitHub Pro/403；与当前正式 v0.2.1 和实际 Public/main.protected=true 相矛盾。此前 native CI 全绿不掩盖这个实质发布级错误。
+- 限域修复只更新未发布 v0.2.2 候选的治理总纲两处准确版本和平台事实；加测试保证总纲的正式 v0.2.1、候选 v0.2.2 和 Public 单账号审核状态一致，Private/403 仅为历史，明确 CODEOWNERS 非强制 AI 审查，人类明确发布批准不可由模型取代。
+- 新候选需要准确 Manifest 重算、完整测试、GitHub native CI 和新独立 AI R0；上轮 REQUEST_CHANGES 继续保留。正式 v0.2.1 Tag/main/Plugin 不变、不得自动 merge、发布或换源。

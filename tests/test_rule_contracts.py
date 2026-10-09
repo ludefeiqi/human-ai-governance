@@ -27,6 +27,27 @@ def test_candidate_tag_v022_does_not_alter_published_v021():
     assert g["release_tag"]=="v0.2.2"
     assert "v0.2.2 候选" in (ROOT/"GOVERNANCE.md").read_text()
 
+def test_governance_top_level_follows_current_public_single_owner_version():
+    owner=(ROOT/"GOVERNANCE.md").read_text()
+    lead=owner.split("## G0",1)[0]
+    release=owner.split("### G2-RELEASE-01 发布合同",1)[1].split("### G2-SOURCE-02",1)[0]
+    assert "正式已发布政策为 v0.2.1" in lead
+    assert "尚未发布的 v0.2.2 候选" in lead
+    assert "v0.2.1 整理候选" not in lead
+    assert "已发布 v0.2.0 保持不变" not in lead
+    for required in (
+        "Public", "main.protected=true",
+        "required_approving_review_count=0",
+        "require_last_push_approval=false",
+        "CODEOWNERS 只是归属信息",
+        "用户准确发布批准",
+        "HTTP 403 是历史事实",
+    ):
+        assert required in release,required
+    assert "个人私库当前套餐的 403 必须明示" not in release
+    assert "AI 独立只读复核" in release
+
+
 def test_plugin_overlay_pins_only_the_released_v020():
     plan=json.loads((ROOT/"clients/plugin-update.json").read_text())
     lock=(ROOT/plan["overlay_root"]/"skills/governance-bootstrap/references/source-lock.md").read_text()

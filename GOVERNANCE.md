@@ -1,6 +1,6 @@
 # Global Controller Governance — 治理总纲
 
-版本：v0.2.1 整理候选。只有准确候选经独立复核、用户明确发布批准、正式 annotated Tag 和运行端显式 policy Commit pin 全部验证后生效。已发布 v0.2.0 保持不变；候选文件、main 更新或插件安装不自动生效。
+版本状态：正式已发布政策为 v0.2.1（Merge Commit 8284952acf2ddf817b6fe4a0b7d6ef4fea4e5e18），本文件属于尚未发布的 v0.2.2 候选。只有候选准确 HEAD 经独立只读复核、用户明确的精确发布批准、正式新 annotated Tag 及运行端显式来源锁独立核验后才能采用；已发布 v0.2.1 保持不变。候选分支、main 更新或插件安装本身不自动产生新政策。
 
 ## G0 治理宪章：一个权威，不是七个管理层
 
@@ -38,7 +38,7 @@ Global Controller Governance 是本体系内跨项目治理规则的最高权威
 ## G2 政策、版本与同步
 
 ### G2-RELEASE-01 发布合同
-此 **v0.2.2 候选**仅强化 GitHub 原生版本控制；已发布 v0.2.1 和当前安装的插件来源锁在完成新 Tag、独立发布审批和后续插件明确采用前均不得漂移。Immutable Releases 只锁发布后的 Tag/附件，不保护 main。CODEOWNERS 与 CI 仅在 GitHub 正式分支保护/Rulesets 生效时才是强制合并门禁，个人私库当前套餐的 403 必须明示。执行细则和官方文档入口见 releases/GITHUB-VERSION-MANAGEMENT.md。
+此 **v0.2.2 候选**仅强化 GitHub 原生版本控制；已发布 v0.2.1 和当前安装的插件来源锁在完成新 Tag、独立发布审批和后续插件明确采用前均不得漂移。Immutable Releases 只锁发布后 Tag/附件，不取代 main 分支保护。当前 GitHub 仓库为 Public，main.protected=true，GitHub 强制 PR 和严格的 validate 检查；单账号配置 required_approving_review_count=0、require_last_push_approval=false，其余管理员与禁止强推/删除以及 Tag Ruleset 保护保留。CODEOWNERS 只是归属信息；AI 独立只读复核和用户准确发布批准不是 GitHub 真人第二审核或现成 required check。早期 Private 仓库套餐的 HTTP 403 是历史事实，不得当作当前权限状态。实时状态与官方文档依据见 releases/GITHUB-VERSION-MANAGEMENT.md。
 提案 → 准确候选与差分 → 按风险独立只读复核 → 用户明确发布批准 → 受控提交/发布 → 原始字节和正式 Tag 读回 → 运行端显式采用。批准记录须关联 candidate Commit、Manifest SHA256、审查引用/结论、用户批准来源与时间精度、release PR/Commit/Tag、适用范围；缺项/矛盾为 APPROVAL_MISMATCH。用户消息时间不可取得时如实标精度，不伪造时间。项目采用集合默认空。
 
 ### G2-SOURCE-02 政策来源
