@@ -1,6 +1,6 @@
 # CODEX-PROTOCOL.md — G4 授权执行与回执协议
 
-随已验证治理版本采用；v0.2.1 为候选。规则依据 G4-SCOPE-01、G4-WRITE-02、G4-DISPATCH-03；存在本文件不授予执行、登录或写权，也不要求新建 MCP/调度服务。
+本协议仅随经核实且显式采用的正式治理政策生效。规则依据 G4-SCOPE-01、G4-WRITE-02、G4-DISPATCH-03；存在本文件不授予执行、登录或写权，也不要求新建 MCP/调度服务。
 
 ## E1 入口与能力
 一次性获准任务可用 codex exec；长期任务可用 App Server，但必须核实际版本/参数和现有 thread/turn。thread/list/read 可作获准非恢复型查询，thread/resume 会恢复上下文，不属于 R0。不能凭列表缺项认定旧任务不存在。CLI 默认模型失效应明确诊断，仅对本次选用实际可用模型，不改全局配置。

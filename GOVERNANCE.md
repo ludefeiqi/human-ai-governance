@@ -1,6 +1,6 @@
 # Global Controller Governance — 治理总纲
 
-版本状态：当前正式公开政策为 v0.2.2（Immutable Release；Merge Commit b125c54af9f178c2607238c792bca72d2569e4b5）。本开发分支新增的 HAG-CORE-001 仍是未授权、未发布、未采用的拟议章程；以下 G2 等旧条文中保留的“v0.2.2 候选”用语属于该版发布前历史阶段叙述，已有保留事项记录，不应误判正式 v0.2.2 尚未发行。是否修正这些历史文字须在后续准确候选中另行审议，不得修改旧 Tag/Release 或自行扩权。
+历史正式基线：本 HAG-CORE-001 修约候选以已发布的 v0.2.2（Immutable Release；Merge Commit b125c54af9f178c2607238c792bca72d2569e4b5）为审查起点，后继政策须独立核验准确版本并取得明确发布／采用批准。原 v0.2.2 发行文本保留有发布前阶段措辞；其实际发布事实依 Tag、Release、审计和保留记录判定，不授权修改历史或自行扩权。
 
 <!-- HAG-CORE-001:BEGIN -->
 ## HAG-CORE-001｜核心架构与扩展边界合同
@@ -109,7 +109,7 @@ Global Controller Governance 是本体系内跨项目治理规则的最高权威
 ## G2 政策、版本与同步
 
 ### G2-RELEASE-01 发布合同
-此 **v0.2.2 候选**仅强化 GitHub 原生版本控制；已发布 v0.2.1 和当前安装的插件来源锁在完成新 Tag、独立发布审批和后续插件明确采用前均不得漂移。Immutable Releases 只锁发布后 Tag/附件，不取代 main 分支保护。当前 GitHub 仓库为 Public，main.protected=true，GitHub 强制 PR 和严格的 validate 检查；单账号配置 required_approving_review_count=0、require_last_push_approval=false，其余管理员与禁止强推/删除以及 Tag Ruleset 保护保留。CODEOWNERS 只是归属信息；AI 独立只读复核和用户准确发布批准不是 GitHub 真人第二审核或现成 required check。早期 Private 仓库套餐的 HTTP 403 是历史事实，不得当作当前权限状态。实时状态与官方文档依据见 releases/GITHUB-VERSION-MANAGEMENT.md。
+历史 v0.2.2 版本的 GitHub 原生保护增强已通过正式发布；后继政策须依据当时实际已采用的来源独立审查、获准确发布批准、形成新 Tag／Release，并经运行端显式采用，旧已发布版本与客户端来源锁不得自动漂移。Immutable Releases 只锁发布后 Tag/附件，不取代 main 分支保护。v0.2.2 发布准备时核实仓库为 Public，main.protected=true，GitHub 强制 PR 和严格的 validate 检查；单账号配置 required_approving_review_count=0、require_last_push_approval=false，其余管理员与禁止强推/删除以及 Tag Ruleset 保护保留。CODEOWNERS 只是归属信息；AI 独立只读复核和用户准确发布批准不是 GitHub 真人第二审核或现成 required check。早期 Private 仓库套餐的 HTTP 403 是历史事实，不得当作当前权限状态。实时状态与官方文档依据见 releases/GITHUB-VERSION-MANAGEMENT.md。
 提案 → 准确候选与差分 → 按风险独立只读复核 → 用户明确发布批准 → 受控提交/发布 → 原始字节和正式 Tag 读回 → 运行端显式采用。批准记录须关联 candidate Commit、Manifest SHA256、审查引用/结论、用户批准来源与时间精度、release PR/Commit/Tag、适用范围；缺项/矛盾为 APPROVAL_MISMATCH。用户消息时间不可取得时如实标精度，不伪造时间。项目采用集合默认空。
 
 ### G2-SOURCE-02 政策来源

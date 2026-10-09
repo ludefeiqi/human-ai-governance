@@ -24,7 +24,7 @@ def test_one_governance_authority_not_seven_agents():
 
 def test_immutable_v022_base_and_candidate_core_are_distinct():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
-    assert g["release_tag"]=="v0.2.2"
+    assert g["release_tag"]=="v0.2.3"
     assert "v0.2.2（Immutable Release" in (ROOT/"GOVERNANCE.md").read_text()
     assert "HAG-CORE-001" in (ROOT/"GOVERNANCE.md").read_text()
 
@@ -32,8 +32,8 @@ def test_governance_top_level_follows_current_public_single_owner_version():
     owner=(ROOT/"GOVERNANCE.md").read_text()
     lead=owner.split("## G0",1)[0]
     release=owner.split("### G2-RELEASE-01 发布合同",1)[1].split("### G2-SOURCE-02",1)[0]
-    assert "正式公开政策为 v0.2.2" in lead
-    assert "未授权、未发布、未采用" in lead
+    assert "历史正式基线" in lead
+    assert "后继政策须独立核验准确版本" in lead
     assert "v0.2.1 整理候选" not in lead
     assert "已发布 v0.2.0 保持不变" not in lead
     for required in (

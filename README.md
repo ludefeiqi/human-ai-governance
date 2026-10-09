@@ -5,7 +5,7 @@
 
 ## 项目开发的唯一核心边界（候选）
 
-**总章程唯一正本：根目录 [GOVERNANCE.md](GOVERNANCE.md) 的 HAG-CORE-001 章。** 五职责域固定，普通开发必须在 N1—N6 准入后挂接原域，保持 K01—K12 不变量；开发指导见 [AGENTS.md](AGENTS.md)，独立验收见 [REVIEW-CHECKLIST.md](REVIEW-CHECKLIST.md)。PR 应记录具体必要性、owner_node、准确差分、证据、权限、停用及待批准项。
+**总章程唯一正本：根目录 [GOVERNANCE.md](GOVERNANCE.md) 的 HAG-CORE-001 章。** 五职责域及 K01—K12 保持固定；**新增独立能力、权限或常驻依赖**必须先完成 N1—N6 准入，普通局部修复按照现有 G4／G6 进行比例审查；开发指导见 [AGENTS.md](AGENTS.md)，独立验收见 [REVIEW-CHECKLIST.md](REVIEW-CHECKLIST.md)。PR 应记录具体必要性、owner_node、准确差分、证据、权限、停用及待批准项。
 
 本段是候选开发指引，不是现行生效许可。**文档制定规则，受保护 PR/CI 与执行宿主承担实际约束**；未真实配置或验证的强制能力不得声称 ENFORCED。
 

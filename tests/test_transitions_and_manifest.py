@@ -262,6 +262,9 @@ def test_precheck_is_not_registration_approval():
         ("v0.2.0", "HOLD_V0_1_SEMANTICS", True),
         ("v0.2.1", "HOLD_V0_2_0_SEMANTICS", True),
         ("v0.2.2", "HOLD_V0_2_1_SEMANTICS", True),
+        ("v0.2.3", "HOLD_V0_2_2_SEMANTICS", True),
+        ("v0.2.3", "HOLD_V0_2_1_SEMANTICS", False),
+        ("v0.2.2", "HOLD_V0_2_2_SEMANTICS", False),
         ("v0.2.2", "HOLD_V0_2_0_SEMANTICS", False),
         ("v0.2.1", "HOLD_V0_2_1_SEMANTICS", False),
         ("v0.2.1", "HOLD_V0_1_SEMANTICS", False),
@@ -294,11 +297,11 @@ def test_release_specific_unreleased_behavior_is_fail_closed(tmp_path: Path, tag
         assert err.value.code == "GENESIS_UNRELEASED_INVALID"
 
 
-def test_candidate_genesis_v022_stays_on_published_v021_until_new_tag():
+def test_candidate_genesis_v023_stays_on_published_v022_until_new_tag():
     from registry.validate_registry import load_genesis
     source = load_genesis(Path("registry/GENESIS.json"))
-    assert source["release_tag"] == "v0.2.2"
-    assert source["unreleased_behavior"] == "HOLD_V0_2_1_SEMANTICS"
+    assert source["release_tag"] == "v0.2.3"
+    assert source["unreleased_behavior"] == "HOLD_V0_2_2_SEMANTICS"
     # This is policy genesis metadata, not a runtime switch or user approval.
     assert source["status"] == "ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG"
     assert source["registry_branch"] == "main"
