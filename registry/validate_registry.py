@@ -42,6 +42,8 @@ CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 GLOB_CHARS = set("*?[]{}")
 FIXED_MANIFEST_BASE = {
     ".github/workflows/registry-validate.yml",
+    ".github/CODEOWNERS",
+    "releases/GITHUB-VERSION-MANAGEMENT.md",
     "AGENTS.md",
     "CODEX-PROTOCOL.md",
     "GOVERNANCE.md",
@@ -67,6 +69,8 @@ FIXED_POLICY_TEST_FILES = {
     "tests/test_capability_routing.py",
     "tests/test_tool_adapters.py",
     "tests/test_route_scaling.py",
+    "tests/test_gh_native_version_control.py",
+    "tests/test_release_preflight.py",
 }
 OPTIMIZATION_POLICY_FILES = {
     'CLIENT-CONTRACT.md',
@@ -94,6 +98,7 @@ OPTIMIZATION_POLICY_FILES = {
     'registry/route_capabilities.py',
     'registry/route_tool_adapters.py',
     'registry/benchmark_route_scaling.py',
+    'registry/verify_release_preflight.py',
 }
 RELEASE_POLICY_FILESET = FIXED_MANIFEST_BASE | FIXED_POLICY_TEST_FILES | OPTIMIZATION_POLICY_FILES
 
@@ -387,7 +392,7 @@ def load_genesis(path: Path) -> dict[str, Any]:
         raise RegistryError("GENESIS_OWNER_INVALID", "immutable owner account is invalid")
     if value["governance_repository"].split("/", 1)[0] != value["immutable_owner_account"]:
         raise RegistryError("GENESIS_OWNER_INVALID", "immutable owner must own the governance repository")
-    if value["release_tag"] not in {"v0.2.0", "v0.2.1"}:
+    if value["release_tag"] not in {"v0.2.0", "v0.2.1", "v0.2.2"}:
         raise RegistryError("GENESIS_TAG_INVALID", "unsupported exact release tag")
     if value["registry_path"] != "projects.yaml" or value["registry_branch"] != "main":
         raise RegistryError("GENESIS_REGISTRY_INVALID", "genesis registry target is invalid")
@@ -408,6 +413,7 @@ def load_genesis(path: Path) -> dict[str, Any]:
     expected_unreleased = {
         "v0.2.0": "HOLD_V0_1_SEMANTICS",
         "v0.2.1": "HOLD_V0_2_0_SEMANTICS",
+        "v0.2.2": "HOLD_V0_2_1_SEMANTICS",
     }[value["release_tag"]]
     if value["unreleased_behavior"] != expected_unreleased:
         raise RegistryError("GENESIS_UNRELEASED_INVALID", "unreleased behavior disagrees with the exact policy tag")

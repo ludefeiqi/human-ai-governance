@@ -1,0 +1,10 @@
+# Public single-owner governance. Ownership mapping is documentation only.
+# GitHub branch protection requires PR + validate with ZERO GitHub reviewers.
+# CODEOWNERS is NOT independent review; second reviewer requires a real
+# eligible GitHub actor and separately approved protection rule change.
+* @ludefeiqi
+/.github/ @ludefeiqi
+/.github/CODEOWNERS @ludefeiqi
+/MANIFEST.sha256 @ludefeiqi
+/registry/ @ludefeiqi
+/clients/ @ludefeiqi

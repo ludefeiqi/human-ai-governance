@@ -206,3 +206,47 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 正式主线仍 `v0.2.0 / main=7aced01a8c12e1bba5e810ce91ab425f4615d4a7`；旧 annotated Tag `093eb9cf706d46268118c2a877906b24fc9ce391` unsigned；`v0.2.1` Tag 不存在。GitHub branch protection/rulesets API 为 HTTP 403，**是否存在真实 GitHub 强制保护 UNKNOWN**，未经批准不得依据本地推断发起共享写入。安装插件已通过 Plugin Creator 本轮只读实核为 `0.2.0 / pluginrel_6ac761de71488191b66468d32bcbcaa3`，没有升级。
 - 本节新增的仅治理工程**非 Manifest 权威实施账本**审查结果会产生一个新的 Draft HEAD：必须单独核其只有账本变化、旧源 Manifest 原始 SHA 不变，并运行该精确 HEAD 原生 CI、最小只读审查；之后 PR body 可再按准确 HEAD 更新并追加最后审查关联评论。不可用本节文字自证新 HEAD 已被之前 `ee754b49…` 全量审查覆盖。
 - **S6 阶段裁定：HOLD_FOR_EXPLICIT_RELEASE_APPROVAL / REVIEW_READY（限定完整代码候选）**。用户此前授权明确只包括候选返修和验收，不包括将 PR 转 Ready、merge、Tag、发布后采用、插件修改、HOT 写口移交或运行任务。S7 仍 `HOLD_FOR_SEPARATE_PLUGIN_APPROVAL`。
+
+
+## 19. GitHub 原生版本保护候选（2026-10-09；独立于已归档 S7）
+
+- 本节为附加**仓库运维/版本管控候选账本**，不是业务项目第二账本，不改变 S6 v0.2.1 的不可变发布事实，不继承任何项目派工许可。
+- 正式基线：v0.2.1 Tag 对象 bf80e4af9b088f65f6f47c7d60313239023d7093 -> Merge Commit 8284952acf2ddf817b6fe4a0b7d6ef4fea4e5e18；raw MANIFEST a7de7d1b8f0ed694fa0e05b047d3af1d2316d5055bd57ae29b83de0a2130180d，49 个固定文件；插件已安装 0.3.0 仍锁 v0.2.1。
+- 已实际开启并读回：GitHub immutable-releases.enabled=true，v0.2.0/v0.2.1 的 GitHub Releases 均 immutable=true，Tag 与附件 digest 验证通过，Latest=v0.2.1。v0.1.0 早期 Release immutable=false，**不删除重建**。GitHub Actions allowed_actions=selected，github_owned_allowed=true、verified_allowed=false、patterns_allowed=[]；默认 GITHUB_TOKEN 只读且不得审批 PR。仅允许 merge-commit PR 合并，禁 squash/rebase。
+- 仍受**平台限制**：GitHub private personal 仓库 main.protected=false；GET /branches/main/protection 与 /rulesets 都 HTTP 403 (requires GitHub Pro or public repo)。用户目标为私库不可污染，故绝不自动转公开、升级付费或冒称已有强制检查；需要用户另行完成受支持的套餐与真实第二 reviewer 准备。
+- 待验的 v0.2.2 候选：仅在新草稿分支引入 GitHub 完整 SHA pinned Actions、每 PR 必跑 validate、main/tag/release 的只读完整性检查、CODEOWNERS 与官方版本操作说明、严格 GENESIS v0.2.2→保持 v0.2.1 未发布语义及对应的 52 项固定文件 Manifest。用户未再次批准准确 v0.2.2 发布 Commit，不合并、不创建新 Tag、不更新插件。GitHub repo-level sha_pinning_required **暂 false**，需待新工作流确实正式通过和运行验证后再开启，避免中断正式 v0.2.1 原工作流。
+- 此文记录的仓库设置是 GitHub 当前读回状态；平台设置是否继续生效需未来实时再读。已发布政策 v0.2.1、项目目录、业务 writer、项目源码、运行态、生产、身份和账号费用均未在本候选更新。
+- 用户下一步必要动作：保持私库，选择可支持 private branch protection/rulesets 的 GitHub 计划（个人库通常是 GitHub Pro），落实可真实审批的独立 GitHub reviewer，再配置 main/tag active 强制规则并验证。没有平台支持时 Draft PR 只给出候选而不是已发布治理授权。
+
+## 20. GitHub 原生审查第一次拒绝与最小返修（2026-10-09，未发布）
+
+- Draft PR #8 第一候选 HEAD 79727dfeb649958e2e20c9e824bd55dcdc0068ce，CI validate job 113533286075 completed/success，但独立只读 Codex gpt-5.6-sol 给出 REQUEST_CHANGES：① PR 默认签出 refs/pull/8/merge 合成合并树而非准确源 HEAD；API 的 check.head_sha 不能证明本地签出的是源 HEAD。② Immutable Release 仅 publish 后检查，没有锁定前参数化草稿附件核验。该否决保留，不以 413 tests PASS 抵消。
+- 限域返修：CI checkout 精确 github.event.pull_request.head.sha，运行时 fail-closed 断言 git rev-parse HEAD == PR_HEAD，差分也对源 HEAD。新增 registry/verify_release_preflight.py，接受唯一 repo、准确 Tag 对象和 Commit、Release draft ID、原始 Manifest SHA、每个 Release asset 的 SHA256，并核 Genesis/main；workflow_dispatch 仅将 6 个外部用户输入送入环境变量，绝不直接拼接进 shell；通过后在正式精确 HEAD 运行 audit-main，不自动发布。新增正负例验证。
+- 生效边界：workflow_dispatch 必须先被 GitHub default branch 采用才可实际触发；当前仅是未批准的候选，不能宣称正式平台 preflight 已部署或 main/Tag rules 强制保护已启用。任一审查阻断保留 HOLD，不合并。
+
+## 21. 发布前只读校验第二轮拒绝及独立信任根修复（2026-10-09）
+
+- Draft PR #8 第二候选精确 HEAD 2f20f3fe88043de99d4516115a4d05e8d6ec3f97 的原生 validate 真实签出准确源 SHA、437 tests PASS；但独立只读 Codex gpt-5.6-sol 再次 REQUEST_CHANGES：原发布前校验器对 SHA256SUMS.txt 与非 Manifest 附件只做 digest 形式检查，未与独立可信摘要比对，亦未下载所有实际资产；另未在 R0 预检末二次核 main、Tag、Release 与附件快照，存在同次读取窗口内的 TOCTOU 不可见风险。此前第一轮拒绝、第一次修复 PASS 范围及本次再次否决均保留，不删除历史。
+- 限域再次修复：增加单独可信根 expected_checksums_sha256（共六个参数），只允许 Manifest / evidence.json / SHA256SUMS.txt 三个命名附件；GitHub 每个资产 ID/state/size/digest 必须具体可核；经 GitHub read-only raw download 原始字节与独立核准 SHA256SUMS root、每行附件白名单摘要及 Manifest 原字节双向比对，任何额外/遗漏或摘要错误 HOLD。
+- 再次读取 main、annotated Tag 对象及 dereference、完整 Draft Release 元数据、所有 asset IDs/digests/sizes/updated_at 并与首次快照逐字段比较，输出其 deterministic SHA256。**这只能证明本次 R0 读取窗口稳定，不能杜绝预检后、发布前的并发变化，更不构成原子许可**；所有正式发布操作都要再次准确读回并经人类单独批准。
+- 通过真实数十条合成正反例、全仓测试、固定政策 SHA 与准确新 HEAD GitHub CI 后，再提交独立 reviewer；在其明确 APPROVE_DESIGN_CANDIDATE_ONLY 前保持 DRAFT/HOLD。
+
+## 22. 第三轮发布前校验复核与时间字段约束（2026-10-09）
+
+- 准确候选 HEAD bf9ac9ff96ba29dd42a25d9b5acbab693ea2a6b6 的独立 Codex gpt-5.6-sol R0 审查再次 REQUEST_CHANGES，唯一阻断：两次元数据读取中 GitHub release.updated_at 或任一 asset.updated_at 缺失/格式错误时，原实现 .get 返回 None 且两边可相等，易把双重缺失误判稳定。审查确认其他已否决的独立 checksum 根、三附件真实下载 SHA、真实 GitHub Tag 对象结构和 TOCTOU 范围已修复。
+- 本轮局部返修：读取 Release 和每个 asset 的 updated_at 时立即要求 GitHub 标准 UTC ISO8601 时间戳，验证真实日历有效性；缺字段、None、整数、无效日期和控制字段均 HOLD。首次和第二次不同时即 RELEASE_OR_REF_CHANGED_DURING_PREFLIGHT。新增缺失/错误与第二次日期漂移合成负例。
+- 已对现行已发布 v0.2.1 的 GitHub REST 实际读取核 release.updated_at、每个 asset.updated_at 均有标准 UTC 值；不能以真实 v0.2.1 immutable release 冒充 v0.2.2 draft 实时预检已运行。此候选仍不授予正式发布、Tag 或插件安装权，必须对准确新 HEAD 再跑 native CI 和独立只读审查。
+
+## 23. Public 单账号保护与 AI 自审核边界（2026-10-09）
+
+- 历史状态为 Private / Branch Protection API 403；用户随后明确选择 Public 并自行切换，GitHub 读回 public 与 main.protected=true。原治理 v0.2.1 和版本 Release 仍固定。
+- 用户只有一个 GitHub 账号，明确批准将 required_approving_review_count 从 1 调整为 0，并关闭 require_last_push_approval。Github PATCH 返回预期，修改前后完整 Protection JSON 已备份及核真；主分支强制 PR、严格 validate（GitHub Actions App 15368）、管理员约束、评论解决、旧批准失效、禁止强推删除均保留。Tag Ruleset 24772923 仍 Active、v* update/deletion 禁止、无 bypass。
+- 单人发布流程：Github hard gate=PR+CI，独立 AI R0 复核最新准确 HEAD/Manifest/CI 并保存证据，人类本人另行批准具体版本范围后才可执行 Merge/Tag/Release。AI 不等于独立 GitHub 真人 Review，owner 评论不等于本人密码学签名。此前只批准 1->0/关闭他人认可和完善审核流程，并未批准 v0.2.2 发布。
+- 修改文档/测试产生的新 Draft 候选 Commit 必须重新运行全量 CI、Manifest 哈希和独立只读复核，旧准确 HEAD 1960b8d2249cd03c65e0c49bc205603273878b49 的 460 tests + APPROVE_DESIGN_CANDIDATE_ONLY 不可作为新 HEAD 审查和发布授权。
+
+## 24. 单账号候选总纲历史版本纠偏（2026-10-09，独立 AI 审查再次否决）
+
+- 新 Public 单账号候选准确 HEAD 600b3d6cac170a25815ece5cb5d356e813ecbb96 完整测试 461 PASS，GitHub native validate job 113711456118 completed/success，Manifest 54 项原始摘要和 Git Git mode 均核真。独立 Codex gpt-5.6-sol / read-only / ephemeral 返回 REQUEST_CHANGES，并未修改仓库。
+- 该次否决发现治理最高正文 GOVERNANCE.md 第 3 行仍将 v0.2.1 写作候选、v0.2.0 写作现行正式版本，G2-RELEASE-01 第 41 行仍用当前语气描述私人仓库 GitHub Pro/403；与当前正式 v0.2.1 和实际 Public/main.protected=true 相矛盾。此前 native CI 全绿不掩盖这个实质发布级错误。
+- 限域修复只更新未发布 v0.2.2 候选的治理总纲两处准确版本和平台事实；加测试保证总纲的正式 v0.2.1、候选 v0.2.2 和 Public 单账号审核状态一致，Private/403 仅为历史，明确 CODEOWNERS 非强制 AI 审查，人类明确发布批准不可由模型取代。
+- 新候选需要准确 Manifest 重算、完整测试、GitHub native CI 和新独立 AI R0；上轮 REQUEST_CHANGES 继续保留。正式 v0.2.1 Tag/main/Plugin 不变、不得自动 merge、发布或换源。
