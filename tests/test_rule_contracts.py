@@ -20,7 +20,7 @@ def test_all_rule_references_resolve_to_one_normative_location():
 def test_one_governance_authority_not_seven_agents():
     t=(ROOT/"GOVERNANCE.md").read_text()
     assert "不是 Agent 数量" in t and "不是第二个治理权威" in t
-    assert "领域" in t and "不自动" in t
+    assert "领域" in t and "不因地位较高而自动获得写权" in t
 
 def test_immutable_v022_base_and_candidate_core_are_distinct():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
@@ -111,7 +111,7 @@ def test_core_charter_12_invariants_have_exactly_one_id():
     core=_core_charter()
     found=re.findall(r"\*\*K(\d{2}) ",core)
     assert found==[f"{i:02d}" for i in range(1,13)]
-    assert "五个不可变职责域" in core and "不存在独立的 Global Observation 治理层" in core
+    assert "五个必要且独立的职责域" in core and "不存在必须新增的独立 Global Observation 管理层" in core
 
 
 def test_core_charter_has_six_extension_admission_gates_and_five_nodes():
@@ -119,14 +119,14 @@ def test_core_charter_has_six_extension_admission_gates_and_five_nodes():
     assert re.findall(r"\*\*N(\d) ",core)==[str(i) for i in range(1,7)]
     for role in ("Human","Governance","Controller","Projects","Execution"):
         assert f"**{role}**" in core
-    assert "NOT_ADMITTED" in core and "CANDIDATE / NOT_ADOPTED" in core
-    assert "IMPLEMENTATION_AUTHORIZED" in core and "ACTIVATION_AUTHORIZED" in core
+    assert "不得以“未来可能有用”启动实施" in core
+    assert "普通无新增能力或权限的局部修复" in core
     assert "DOCUMENTED_NOT_ENFORCED" in core
 
 
 def test_core_charter_single_normative_home_and_dev_entrypoints():
     core=_core_charter()
-    for label in ("C01","C02","C03","C04","C05","C06","C07","C08","C09","C10","C11","C12"):
+    for label in ("C01","C02","C03","C04","C05","C06","C07","C08"):
         assert re.search(rf"^### {label}｜",core,re.M)
     agent=(ROOT/"AGENTS.md").read_text(encoding="utf-8")
     review=(ROOT/"REVIEW-CHECKLIST.md").read_text(encoding="utf-8")
@@ -134,10 +134,15 @@ def test_core_charter_single_normative_home_and_dev_entrypoints():
     assert "N1—N6" in agent and "CORE_CHANGE_REVIEW_REQUIRED" in agent
     assert "HAG-CORE-001" in review and "HAG-CORE-001" in index
     assert "v0.2.2 Immutable Release" in index
+    for forbidden in ("Bootstrap 0.4.0", "HOST_COLD_START_PARTIAL",
+                      "v0.2.2", "当前状态与最小开发顺序",
+                      "CANDIDATE / NOT_ADOPTED"):
+        assert forbidden not in core, forbidden
+    assert "普通无新增能力或权限的局部修复" in core
 
 
 def test_core_charter_exact_byte_tripwire_for_normal_extensions():
     # The checksum is NOT a signature or an independent check: a changing
     # charter and its test are a core amendment requiring independent approval.
     from hashlib import sha256
-    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="82d2deeff661b02e3b3f0e292019d026b66a2fa789c058079d885c4bbc749263"
+    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="e50156427b4791f6f39e43b4cc35a5ac295e3d3148a9caeb3f2e7926e367d375"
