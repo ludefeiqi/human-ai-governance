@@ -236,3 +236,10 @@ S0 判定 **PASS_SCOPE_BASELINE**：仅证明启动实施账本的源版本/当�
 - 准确候选 HEAD bf9ac9ff96ba29dd42a25d9b5acbab693ea2a6b6 的独立 Codex gpt-5.6-sol R0 审查再次 REQUEST_CHANGES，唯一阻断：两次元数据读取中 GitHub release.updated_at 或任一 asset.updated_at 缺失/格式错误时，原实现 .get 返回 None 且两边可相等，易把双重缺失误判稳定。审查确认其他已否决的独立 checksum 根、三附件真实下载 SHA、真实 GitHub Tag 对象结构和 TOCTOU 范围已修复。
 - 本轮局部返修：读取 Release 和每个 asset 的 updated_at 时立即要求 GitHub 标准 UTC ISO8601 时间戳，验证真实日历有效性；缺字段、None、整数、无效日期和控制字段均 HOLD。首次和第二次不同时即 RELEASE_OR_REF_CHANGED_DURING_PREFLIGHT。新增缺失/错误与第二次日期漂移合成负例。
 - 已对现行已发布 v0.2.1 的 GitHub REST 实际读取核 release.updated_at、每个 asset.updated_at 均有标准 UTC 值；不能以真实 v0.2.1 immutable release 冒充 v0.2.2 draft 实时预检已运行。此候选仍不授予正式发布、Tag 或插件安装权，必须对准确新 HEAD 再跑 native CI 和独立只读审查。
+
+## 23. Public 单账号保护与 AI 自审核边界（2026-10-09）
+
+- 历史状态为 Private / Branch Protection API 403；用户随后明确选择 Public 并自行切换，GitHub 读回 public 与 main.protected=true。原治理 v0.2.1 和版本 Release 仍固定。
+- 用户只有一个 GitHub 账号，明确批准将 required_approving_review_count 从 1 调整为 0，并关闭 require_last_push_approval。Github PATCH 返回预期，修改前后完整 Protection JSON 已备份及核真；主分支强制 PR、严格 validate（GitHub Actions App 15368）、管理员约束、评论解决、旧批准失效、禁止强推删除均保留。Tag Ruleset 24772923 仍 Active、v* update/deletion 禁止、无 bypass。
+- 单人发布流程：Github hard gate=PR+CI，独立 AI R0 复核最新准确 HEAD/Manifest/CI 并保存证据，人类本人另行批准具体版本范围后才可执行 Merge/Tag/Release。AI 不等于独立 GitHub 真人 Review，owner 评论不等于本人密码学签名。此前只批准 1->0/关闭他人认可和完善审核流程，并未批准 v0.2.2 发布。
+- 修改文档/测试产生的新 Draft 候选 Commit 必须重新运行全量 CI、Manifest 哈希和独立只读复核，旧准确 HEAD 1960b8d2249cd03c65e0c49bc205603273878b49 的 460 tests + APPROVE_DESIGN_CANDIDATE_ONLY 不可作为新 HEAD 审查和发布授权。

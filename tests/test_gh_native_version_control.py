@@ -113,6 +113,22 @@ def test_official_docs_distinguish_enabled_from_missing_platform_enforcement():
     assert s.count("https://docs.github.com/") >= 10
 
 
+def test_solo_owner_policy_preserves_strict_github_and_separate_ai_human_gates():
+    source=(ROOT/"releases/GITHUB-VERSION-MANAGEMENT.md").read_text()
+    for required in (
+        "main.protected=true", "required_approving_review_count=0",
+        "require_last_push_approval=false", "enforce_admins=true",
+        "required_conversation_resolution=true", "allow_force_pushes=false",
+        "allow_deletions=false", "AI_R0_INDEPENDENT_REVIEW",
+        "USER_EXPLICIT_RELEASE_APPROVAL", "HOLD_FOR_EXPLICIT_RELEASE_APPROVAL",
+        "不自动发布", "不构成批准 v0.2.2 merge",
+    ):
+        assert required in source,required
+    owners=(ROOT/".github/CODEOWNERS").read_text()
+    assert "NOT independent review" in owners
+    assert "ZERO GitHub reviewers" in owners
+
+
 def test_native_guard_files_are_in_next_policy_manifest():
     from registry.validate_registry import RELEASE_POLICY_FILESET
     required={
