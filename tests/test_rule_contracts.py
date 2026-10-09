@@ -20,7 +20,7 @@ def test_all_rule_references_resolve_to_one_normative_location():
 def test_one_governance_authority_not_seven_agents():
     t=(ROOT/"GOVERNANCE.md").read_text()
     assert "不是 Agent 数量" in t and "不是第二个治理权威" in t
-    assert "领域" in t and "不因地位较高而自动获得写权" in t
+    assert "领域" in t and "组织权不自动产生项目写权" in t
 
 def test_immutable_v022_base_and_candidate_core_are_distinct():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
@@ -141,8 +141,22 @@ def test_core_charter_single_normative_home_and_dev_entrypoints():
     assert "普通无新增能力或权限的局部修复" in core
 
 
+def test_controller_can_organize_work_without_default_dispatch_rights():
+    core=_core_charter()
+    governance=(ROOT/"GOVERNANCE.md").read_text(encoding="utf-8")
+    execution=(ROOT/"CODEX-PROTOCOL.md").read_text(encoding="utf-8")
+    assert "分解获授权目标" in core and "组织施工进度并协调结果验收" in core
+    assert "组织权不自动产生项目写权" in core
+    assert "不得成为默认 writer" in core
+    assert "按既有授权组织任务分解与执行编排" in governance
+    assert "原现任 writer 的合规派工入口" in execution
+    assert "未获授权时只能提出派工建议" in execution
+    assert "原项目唯一 INTENT" in core
+    assert "第二权威 NEXT" in execution
+
+
 def test_core_charter_exact_byte_tripwire_for_normal_extensions():
     # The checksum is NOT a signature or an independent check: a changing
     # charter and its test are a core amendment requiring independent approval.
     from hashlib import sha256
-    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="63c194cb48ff5ab89442d565656462059a6860403e50d724582c06f928e45aff"
+    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="0717eaa27c75a7428e7ed8067b4ac54f2b2568c334b7288b9ff9dd1a60e8a9fb"

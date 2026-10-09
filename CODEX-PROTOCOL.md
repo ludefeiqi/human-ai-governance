@@ -16,6 +16,8 @@
 | 责任与返回 | 协调实例、现任 writer、原线程/turn、必要独立复核和返回点 |
 只读 micro-path 按 G4-SCOPE-01 简化，不堆完整历史或每次扫描全仓库。
 
+施工协调的工作包可以由 Controller 根据人类目标和项目冻结合同制定，含依赖、执行者、风险、验收和回执返回点；此组织计划只是依托项目正式状态的派生视图，不是第二权威 NEXT 或新许可。已获准确委托时，可使用原现任 writer 的合规派工入口调用既有 Codex／Agent／MCP；未获授权时只能提出派工建议，不能因为 Controller 能访问工具就触发副作用。同一任务的后续工作包继续核实有效许可、冲突和 INTENT；不得自动扩大任务范围。
+
 ## E3 状态机
 DRAFT → AUTHORIZED → INTENT_COMMITTED → DISPATCHED → RUNNING → COMPLETED_FOR_REVIEW → ACCEPTED/RETURNED → CLOSED_VERIFIED。
 BLOCKED/STOPPED/FAILED/CLEANUP_BLOCKED 不自动前进。exit code 0 和任务完成不是业务 PASS；仅项目有权者凭证据 ACCEPTED，writer 写后读回和清理完成后才能关闭。
