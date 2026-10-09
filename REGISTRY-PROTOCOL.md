@@ -1,9 +1,9 @@
 # REGISTRY-PROTOCOL.md — G2/G3 受控发现与审批实施
 
-v0.2.2 候选；v0.2.1 已正式发布且来源固定，v0.2.2 仅增强仓库版本管理，生效条件见 G2-RELEASE-01。本协议是目录及 A/B 规则的唯一规范出处，不自动授予共享写入或项目访问。历史语义变更见 RULE-MAP.md；未发布前运行端仍使用自己的已批准旧policy。
+本协议仅随经核实且显式采用的正式治理政策生效；v0.2.2 作为已发布历史基线保留，后继版本必须按 G2-RELEASE-01 独立获准发布。本协议是目录及 A/B 规则的唯一规范出处，不自动授予共享写入或项目访问。历史语义变更见 RULE-MAP.md；未发布前运行端仍使用自己的已批准旧policy。
 
 ## R1 三轨来源与初始化
-固定政策：外部 exact Commit pin → annotated Tag 解引用 → 完整 Manifest 文件集合及逐项原始 SHA256 → 当前运行 validator/Schema/GENESIS 比对。三个公开 pre-merge/post-merge/audit-chain 与 audit-main 都要求独立 pin；先固定传入对象的副本，caller 后改 A/B 不生效。候选 v0.2.1 Tag 缺失必须 HOLD；不移动 v0.2.0 Tag、不自动采用新代码。
+固定政策：外部 exact Commit pin → annotated Tag 解引用 → 完整 Manifest 文件集合及逐项原始 SHA256 → 当前运行 validator/Schema/GENESIS 比对。三个公开 pre-merge/post-merge/audit-chain 与 audit-main 都要求独立 pin；先固定传入对象的副本，caller 后改 A/B 不生效。目标正式 Tag 缺失必须 HOLD；不移动 v0.2.0 Tag、不自动采用新代码。
 动态目录：main/projects.yaml 从正式 genesis 起验证连续 first-parent；初始原始字节由 GENESIS.initial_index_sha256 绑定，Manifest 不含以后会变化的索引。业务事实：项目实时HEAD账本、原冻结合同、原生运行证据；不复制到目录。
 GENESIS 固定仓库、owner、release_tag、初始身份集、branch/path、approval mode。当前候选以未变化的原目录作为初始快照，发布前若 main/目录已变，须重新对账和审查，不能重置登记历史来漏项目。加载器可识别旧格式供测试/迁移，但正式执行还必须匹配外部政策pin及所有字节，不能用候选代码替代旧正式代码。
 

@@ -1,6 +1,6 @@
 # CODEX-PROTOCOL.md — G4 授权执行与回执协议
 
-随已验证治理版本采用；v0.2.1 为候选。规则依据 G4-SCOPE-01、G4-WRITE-02、G4-DISPATCH-03；存在本文件不授予执行、登录或写权，也不要求新建 MCP/调度服务。
+本协议仅随经核实且显式采用的正式治理政策生效。规则依据 G4-SCOPE-01、G4-WRITE-02、G4-DISPATCH-03；存在本文件不授予执行、登录或写权，也不要求新建 MCP/调度服务。
 
 ## E1 入口与能力
 一次性获准任务可用 codex exec；长期任务可用 App Server，但必须核实际版本/参数和现有 thread/turn。thread/list/read 可作获准非恢复型查询，thread/resume 会恢复上下文，不属于 R0。不能凭列表缺项认定旧任务不存在。CLI 默认模型失效应明确诊断，仅对本次选用实际可用模型，不改全局配置。
@@ -15,6 +15,8 @@
 | 预算与恢复 | 本任务累计资源/时限、停止点、局部恢复次数、清理边界 |
 | 责任与返回 | 协调实例、现任 writer、原线程/turn、必要独立复核和返回点 |
 只读 micro-path 按 G4-SCOPE-01 简化，不堆完整历史或每次扫描全仓库。
+
+施工协调的工作包可以由 Controller 根据人类目标和项目冻结合同制定，含依赖、执行者、风险、验收和回执返回点；此组织计划只是依托项目正式状态的派生视图，不是第二权威 NEXT 或新许可。Controller 获准确组织委托时可向现任 writer 交付工作包、编排依赖并跟踪回执，但实际有副作用的 Codex／Agent／MCP 派工只能由原项目现任 writer 在有效授权、唯一 INTENT 登记且读回后经其合法入口实施。Controller 若要成为实际派工主体，必须先依原项目交接流程取得相应资格，不能借组织委托或工具可访问性自行施工；无效或缺失授权时仅能提出建议。同一任务的后续工作包继续核实有效许可、冲突和 INTENT；不得自动扩大任务范围。
 
 ## E3 状态机
 DRAFT → AUTHORIZED → INTENT_COMMITTED → DISPATCHED → RUNNING → COMPLETED_FOR_REVIEW → ACCEPTED/RETURNED → CLOSED_VERIFIED。

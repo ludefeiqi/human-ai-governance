@@ -17,10 +17,10 @@ def workflow():
     )
 
 
-def test_candidate_v022_is_never_implicitly_adopted():
+def test_candidate_v023_is_never_implicitly_adopted():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
-    assert g["release_tag"]=="v0.2.2"
-    assert g["unreleased_behavior"]=="HOLD_V0_2_1_SEMANTICS"
+    assert g["release_tag"]=="v0.2.3"
+    assert g["unreleased_behavior"]=="HOLD_V0_2_2_SEMANTICS"
     assert g["status"]=="ACTIVATES_ONLY_AFTER_VERIFIED_RELEASE_TAG"
 
 
@@ -132,8 +132,9 @@ def test_solo_owner_policy_preserves_strict_github_and_separate_ai_human_gates()
 def test_current_gh_governance_narrative_not_stale_after_public_switch():
     policy=(ROOT/"GOVERNANCE.md").read_text()
     version=(ROOT/"releases/GITHUB-VERSION-MANAGEMENT.md").read_text()
-    assert "正式已发布政策为 v0.2.1" in policy
-    assert "尚未发布的 v0.2.2 候选" in policy
+    assert "v0.2.2（Immutable Release" in policy
+    assert "HAG-CORE-001" in policy
+    assert "后继政策须独立核验准确版本并取得明确发布／采用批准" in policy
     assert "Public" in policy and "main.protected=true" in policy
     assert "HTTP 403 是历史事实" in policy
     assert "required_approving_review_count=0" in policy
