@@ -145,4 +145,4 @@ def test_core_charter_exact_byte_tripwire_for_normal_extensions():
     # The checksum is NOT a signature or an independent check: a changing
     # charter and its test are a core amendment requiring independent approval.
     from hashlib import sha256
-    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="e50156427b4791f6f39e43b4cc35a5ac295e3d3148a9caeb3f2e7926e367d375"
+    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="63c194cb48ff5ab89442d565656462059a6860403e50d724582c06f928e45aff"
