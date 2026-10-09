@@ -35,3 +35,14 @@ candidate_commit、manifest_sha256、reviewer_reference、independence_scope、c
 
 ## R6 本候选的语义变更
 依 RULE-MAP.md 识别整理与变义。历史验证分离现时健康是代码语义变更，必须独立复核；G0身份集中表达不授予新写权；插件改造是覆盖包候选，安装与真实冷启动需单独验收。旧v0.2.0 Tag/main 与项目账本保持不动。
+
+## R7 HAG-CORE-001 候选核心边界审查（仅新候选范围）
+
+本小节只给拟议 `GOVERNANCE.md` HAG-CORE-001 的**审查方法**，不自行创设审批或授权。仅在准确候选经独立复核且用户批准后，与其一起生效。
+
+- 核唯一正本位置、五职责域和 K01—K12、N1—N6；不另建第六层、第二合同或平行账本。
+- 对普通新能力要求已批准目标、原生复用失败证据、唯一 owner_node、净新增成本、停用方案、停止点；没有材料标 `NOT_ADMITTED/HOLD`，而不是直接施工。
+- 精确区分本次 `GOVERNANCE.md`/AGENTS/测试自身的更改、被影响协议和旧版本；**新候选自带的检查通过不能充当独立核心批准**。
+- 检查动态项目登记未自动开启派工；旧线程 UNKNOWN 只在相关资源冲突场景阻止派工；非冲突 R0 不被无关阻断。
+- 检查三道关口是否区分 `DOCUMENTED`、`IMPLEMENTED`、`VERIFIED`、`ENFORCED`，没有把 GitHub CI、文件哈希或文本约束宣称为平台不可绕过的安全锁。
+- 审查输出精确 candidate HEAD、Manifest SHA256、独立复核引用、K/N 条款覆盖、未覆盖的真实运行/新窗口测试与现有正式发布/采用差异；未得准确用户发布许可则只可 `APPROVE_DESIGN_ONLY`。

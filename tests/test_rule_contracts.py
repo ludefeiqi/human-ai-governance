@@ -22,17 +22,18 @@ def test_one_governance_authority_not_seven_agents():
     assert "不是 Agent 数量" in t and "不是第二个治理权威" in t
     assert "领域" in t and "不自动" in t
 
-def test_candidate_tag_v022_does_not_alter_published_v021():
+def test_immutable_v022_base_and_candidate_core_are_distinct():
     g=json.loads((ROOT/"registry/GENESIS.json").read_text())
     assert g["release_tag"]=="v0.2.2"
-    assert "v0.2.2 候选" in (ROOT/"GOVERNANCE.md").read_text()
+    assert "v0.2.2（Immutable Release" in (ROOT/"GOVERNANCE.md").read_text()
+    assert "HAG-CORE-001" in (ROOT/"GOVERNANCE.md").read_text()
 
 def test_governance_top_level_follows_current_public_single_owner_version():
     owner=(ROOT/"GOVERNANCE.md").read_text()
     lead=owner.split("## G0",1)[0]
     release=owner.split("### G2-RELEASE-01 发布合同",1)[1].split("### G2-SOURCE-02",1)[0]
-    assert "正式已发布政策为 v0.2.1" in lead
-    assert "尚未发布的 v0.2.2 候选" in lead
+    assert "正式公开政策为 v0.2.2" in lead
+    assert "未授权、未发布、未采用" in lead
     assert "v0.2.1 整理候选" not in lead
     assert "已发布 v0.2.0 保持不变" not in lead
     for required in (
@@ -94,3 +95,49 @@ def test_rule_map_marks_semantic_changes_not_cosmetic_only():
     text=(ROOT/"RULE-MAP.md").read_text()
     assert "真实语义变更" in text and "post-merge" in text
     assert "不是另一个治理规则来源" in text
+
+
+# HAG-CORE-001 candidate: tests are review tripwires, not independent authorization.
+def _core_charter():
+    source=(ROOT/"GOVERNANCE.md").read_text(encoding="utf-8")
+    begin="<!-- HAG-CORE-001:BEGIN -->"
+    end="<!-- HAG-CORE-001:END -->"
+    assert source.count(begin)==1 and source.count(end)==1
+    assert source.index(begin)<source.index(end)<source.index("## G0 治理宪章")
+    return source.split(begin,1)[1].split(end,1)[0]
+
+
+def test_core_charter_12_invariants_have_exactly_one_id():
+    core=_core_charter()
+    found=re.findall(r"\*\*K(\d{2}) ",core)
+    assert found==[f"{i:02d}" for i in range(1,13)]
+    assert "五个不可变职责域" in core and "不存在独立的 Global Observation 治理层" in core
+
+
+def test_core_charter_has_six_extension_admission_gates_and_five_nodes():
+    core=_core_charter()
+    assert re.findall(r"\*\*N(\d) ",core)==[str(i) for i in range(1,7)]
+    for role in ("Human","Governance","Controller","Projects","Execution"):
+        assert f"**{role}**" in core
+    assert "NOT_ADMITTED" in core and "CANDIDATE / NOT_ADOPTED" in core
+    assert "IMPLEMENTATION_AUTHORIZED" in core and "ACTIVATION_AUTHORIZED" in core
+    assert "DOCUMENTED_NOT_ENFORCED" in core
+
+
+def test_core_charter_single_normative_home_and_dev_entrypoints():
+    core=_core_charter()
+    for label in ("C01","C02","C03","C04","C05","C06","C07","C08","C09","C10","C11","C12"):
+        assert re.search(rf"^### {label}｜",core,re.M)
+    agent=(ROOT/"AGENTS.md").read_text(encoding="utf-8")
+    review=(ROOT/"REVIEW-CHECKLIST.md").read_text(encoding="utf-8")
+    index=(ROOT/"README.md").read_text(encoding="utf-8")
+    assert "N1—N6" in agent and "CORE_CHANGE_REVIEW_REQUIRED" in agent
+    assert "HAG-CORE-001" in review and "HAG-CORE-001" in index
+    assert "v0.2.2 Immutable Release" in index
+
+
+def test_core_charter_exact_byte_tripwire_for_normal_extensions():
+    # The checksum is NOT a signature or an independent check: a changing
+    # charter and its test are a core amendment requiring independent approval.
+    from hashlib import sha256
+    assert sha256(_core_charter().encode("utf-8")).hexdigest()=="82d2deeff661b02e3b3f0e292019d026b66a2fa789c058079d885c4bbc749263"

@@ -132,8 +132,9 @@ def test_solo_owner_policy_preserves_strict_github_and_separate_ai_human_gates()
 def test_current_gh_governance_narrative_not_stale_after_public_switch():
     policy=(ROOT/"GOVERNANCE.md").read_text()
     version=(ROOT/"releases/GITHUB-VERSION-MANAGEMENT.md").read_text()
-    assert "正式已发布政策为 v0.2.1" in policy
-    assert "尚未发布的 v0.2.2 候选" in policy
+    assert "正式公开政策为 v0.2.2" in policy
+    assert "HAG-CORE-001" in policy
+    assert "未授权、未发布、未采用" in policy
     assert "Public" in policy and "main.protected=true" in policy
     assert "HTTP 403 是历史事实" in policy
     assert "required_approving_review_count=0" in policy
