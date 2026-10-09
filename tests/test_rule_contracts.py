@@ -124,6 +124,41 @@ def test_core_charter_has_six_extension_admission_gates_and_five_nodes():
     assert "DOCUMENTED_NOT_ENFORCED" in core
 
 
+def _assert_readme_release_navigation(index):
+    # README navigation contract only: no network or runtime ability is verified here.
+    must_include = (
+        "## 规范来源与版本查验",
+        "https://github.com/ludefeiqi/human-ai-governance/releases",
+        "Tag → Commit → 原始 MANIFEST.sha256",
+        "source-lock",
+        "发布 ≠ 采用 ≠ 派工授权",
+        "HAG-CORE-001",
+        "N1—N6",
+    )
+    for phrase in must_include:
+        assert phrase in index, phrase
+    historical_state_misrepresented_as_current = (
+        "正式公开政策为 **v0.2.2 Immutable Release**",
+        "本次文本尚未获准确候选批准、合并、发布",
+        "## 项目开发的唯一核心边界（候选）",
+        "本段是候选开发指引，不是现行生效许可",
+        "拟议 HAG-CORE-001 核心合同",
+    )
+    for phrase in historical_state_misrepresented_as_current:
+        assert phrase not in index, phrase
+
+
+def test_readme_release_navigation_rejects_stale_state_and_missing_provenance():
+    index = (ROOT/"README.md").read_text(encoding="utf-8")
+    _assert_readme_release_navigation(index)
+    with pytest.raises(AssertionError):
+        _assert_readme_release_navigation(index + "\n正式公开政策为 **v0.2.2 Immutable Release**\n")
+    with pytest.raises(AssertionError):
+        _assert_readme_release_navigation(index.replace(
+            "Tag → Commit → 原始 MANIFEST.sha256", "没有验证来源链"
+        ))
+
+
 def test_core_charter_single_normative_home_and_dev_entrypoints():
     core=_core_charter()
     for label in ("C01","C02","C03","C04","C05","C06","C07","C08"):
@@ -133,7 +168,7 @@ def test_core_charter_single_normative_home_and_dev_entrypoints():
     index=(ROOT/"README.md").read_text(encoding="utf-8")
     assert "N1—N6" in agent and "CORE_CHANGE_REVIEW_REQUIRED" in agent
     assert "HAG-CORE-001" in review and "HAG-CORE-001" in index
-    assert "v0.2.2 Immutable Release" in index
+    _assert_readme_release_navigation(index)
     for forbidden in ("Bootstrap 0.4.0", "HOST_COLD_START_PARTIAL",
                       "v0.2.2", "当前状态与最小开发顺序",
                       "CANDIDATE / NOT_ADOPTED"):
@@ -141,7 +176,8 @@ def test_core_charter_single_normative_home_and_dev_entrypoints():
     assert "普通无新增能力或权限的局部修复" in core
 
 
-def test_controller_can_organize_work_without_default_dispatch_rights():
+# STATIC_CONTRACT_ONLY: real writer-authorized handoff needs separate runtime acceptance.
+def test_controller_static_contract_requires_writer_gate_without_claiming_dispatch():
     core=_core_charter()
     governance=(ROOT/"GOVERNANCE.md").read_text(encoding="utf-8")
     execution=(ROOT/"CODEX-PROTOCOL.md").read_text(encoding="utf-8")
